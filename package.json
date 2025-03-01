@@ -11,6 +11,7 @@
   "author": "Arkabrata Chandra",
   "license": "ISC",
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "express": "^5.0.0",
     "mongoose": "^8.10.2"
   }

@@ -3,6 +3,7 @@ import express from "express";
 import { Database } from "./lib/connect.js";
 import { college_router } from "./routes/college_route.js";
 import { Endpoint_notfound } from "./controller/not-found.js";
+import { user_router } from "./routes/user_route.js";
 
 // creating app instance
 const app = express();
@@ -16,6 +17,8 @@ app.use(express.json());
 
 // routes
 app.use("/backend",college_router);
+
+app.use("/backend",user_router);
 
 
 //response for Undeclared api endpoint
