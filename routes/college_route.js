@@ -7,4 +7,6 @@ router.get("/getAllColleges",College.getAllColleges);
 
 router.post("/enlistCollege",College.enlistCollege);
 
+router.get("/college/:id",College.getCollege);
+
 export const college_router = router;
