@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Database } from "../lib/connect.js";
 import { College_Model } from "../models/colleges.js";
 
@@ -22,6 +23,42 @@ export class College {
       });
     }
   }
+
+
+  static async getCollege(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+  
+      const { id } = req.params;
+  
+      // console.log(id);
+      // console.log("Is Valid ObjectId:", mongoose.isValidObjectId(id));
+      
+      if (!mongoose.isValidObjectId(id)) {
+        return res.status(400).json({ message: "Invalid college ID format" });
+      }
+  
+      const college = await College_Model.findById(id);
+  
+      if (!college) {
+        return res.status(404).json({ message: "College not found" });
+      }
+  
+      res.status(200).json({
+        message: "College fetched successfully",
+        result: college,
+      });
+    } catch (error) {
+      console.error("Error fetching college:", error.message);
+      res.status(500).json({
+        message: "Internal server error",
+        error: error.message,
+      });
+    }
+  }
+
 
   static async enlistCollege(req, res) {
     try {
