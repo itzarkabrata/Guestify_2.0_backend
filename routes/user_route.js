@@ -7,4 +7,6 @@ router.get("/getAllUsers",User.getAllUsers);
 
 router.post("/registerUser",User.RegisterUser);
 
+router.post("/loginUser",User.loginUser);
+
 export const user_router = router;
