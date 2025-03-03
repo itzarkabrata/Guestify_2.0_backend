@@ -13,7 +13,7 @@ export class College {
           result: college_list,
         });
       } else {
-        throw new TypeError("Database server is not connected properly");
+        throw new Error("Database server is not connected properly");
       }
     } catch (error) {
       console.log(error.message);
@@ -93,14 +93,14 @@ export class College {
             array_of_cast_error.push("Image must be of type string");
           }
 
-          throw new Error(array_of_cast_error.toString());
+          throw new TypeError(array_of_cast_error.toString());
         }
 
         // Check if the college name already exists
         const college_res = await College_Model.find({ college_name: college_name });
 
         if (college_res.length !== 0) {
-          throw new Error("College already exists. Please try another name");
+          throw new ReferenceError("College already exists. Please try another name");
         }
 
         const enlisted_college = await College_Model.create({
@@ -120,10 +120,18 @@ export class College {
       }
     } catch (error) {
       console.log(error.message);
-      res.status(400).json({
-        message: "Colleges is not enlisted successfully",
-        error: error.message,
-      });
+      if(error instanceof TypeError || error instanceof ReferenceError){
+        res.status(400).json({
+          message: "Colleges is not enlisted successfully",
+          error: error.message,
+        });
+      }
+      else{
+        res.status(500).json({
+          message: "Colleges is not enlisted successfully",
+          error: error.message,
+        });
+      }
     }
   }
 }
