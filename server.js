@@ -1,5 +1,6 @@
 // importing required modules 
 import express from "express";
+import cookieParser from "cookie-parser";
 import { Database } from "./lib/connect.js";
 import { college_router } from "./routes/college_route.js";
 import { Endpoint_notfound } from "./controller/not-found.js";
@@ -16,6 +17,7 @@ const port_number = process.env.PORT || 3000;
 //in-build middleware
 app.use(express.urlencoded({extended : true}));
 app.use(express.json());
+app.use(cookieParser());
 
 // routes
 app.use("/backend",college_router);
