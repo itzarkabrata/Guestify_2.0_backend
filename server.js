@@ -6,6 +6,7 @@ import { college_router } from "./routes/college_route.js";
 import { Endpoint_notfound } from "./controller/not-found.js";
 import { user_router } from "./routes/user_route.js";
 import { pg_router } from "./routes/pg_route.js";
+import { user_profile_router } from "./routes/user_profile_route.js";
 
 
 // creating app instance
@@ -25,6 +26,8 @@ app.use("/backend",college_router);
 app.use("/backend",user_router);
 
 app.use("/backend",pg_router);
+
+app.use("/backend",user_profile_router);
 
 
 //response for Undeclared api endpoint
