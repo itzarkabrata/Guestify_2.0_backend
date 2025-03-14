@@ -8,6 +8,13 @@ import { user_router } from "./routes/user_route.js";
 import { pg_router } from "./routes/pg_route.js";
 import { user_profile_router } from "./routes/user_profile_route.js";
 
+import { fileURLToPath } from "url";
+import path from "path";
+
+// Resolve __dirname in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 
 // creating app instance
 const app = express();
@@ -16,10 +23,14 @@ const app = express();
 const port_number = process.env.PORT || 3000;
 
 //in-build middleware
+app.use(express.static(path.join(__dirname,"user-assets")));
 app.use(express.urlencoded({extended : true}));
 app.use(express.json());
 app.use(cookieParser());
 
+app.get("/",(req,res)=>{
+    res.sendFile(path.join(__dirname, "index.html"));
+})
 // routes
 app.use("/backend",college_router);
 
@@ -28,6 +39,8 @@ app.use("/backend",user_router);
 app.use("/backend",pg_router);
 
 app.use("/backend",user_profile_router);
+
+
 
 
 //response for Undeclared api endpoint
