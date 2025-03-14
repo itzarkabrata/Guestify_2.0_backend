@@ -44,7 +44,7 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage: storage, fileFilter: fileFilter });
 
-router.post(
+router.put(
   "/updateProfile",
   upload.single("image_url"),
   UserProfile.UpdateDetails
