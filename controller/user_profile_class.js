@@ -2,10 +2,22 @@ import mongoose from "mongoose";
 import { Database } from "../lib/connect.js";
 import { User_Model } from "../models/users.js";
 
+import { fileURLToPath } from "url";
+import path from "path";
+
+// Resolve __dirname in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 export class UserProfile {
   static async UpdateDetails(req, res) {
     try {
       if (await Database.isConnected()) {
+
+        if (req.file) {
+          req.body.image_url = path.join(__dirname,"../",req.file.path);
+        }
+
         const {
           first_name,
           last_name,
@@ -50,14 +62,9 @@ export class UserProfile {
           throw new TypeError("District is required and must be a string");
         }
         
-        if (!pincode || typeof pincode !== "number") {
+        if (!pincode || typeof Number(pincode) !== "number") {
           throw new TypeError("Pincode is required and must be a number");
         }
-        
-        if (image_url && typeof image_url !== "string") {
-          throw new TypeError("Image URL must be of type string");
-        }
-        
 
         const updated_user = await User_Model.updateMany(
           { _id: userid },

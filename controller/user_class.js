@@ -460,10 +460,10 @@ export class User {
       const res_user = await User_Model.find({ email: email });
 
       if (res_user.length !== 0) {
-        if(req.body){
-          req.body.userid = res_user[0]._id;
+        if (!req.body) {
+          req.body = {}; // Ensure req.body is always an object
         }
-
+        req.body.userid = res_user[0]._id;
         next();
       } else {
         throw new ReferenceError(
