@@ -437,7 +437,9 @@ export class User {
       const res_user = await User_Model.find({ email: email });
 
       if (res_user.length !== 0) {
-        req.body.userid = res_user[0]._id;
+        if(req.body){
+          req.body.userid = res_user[0]._id;
+        }
 
         next();
       } else {
@@ -450,6 +452,7 @@ export class User {
       res.status(400).json({
         message: "Api call failed : Authorization error",
         error: error.message,
+        stack : error.stack
       });
     }
   }

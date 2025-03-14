@@ -26,46 +26,38 @@ export class UserProfile {
         }
 
         // Check datatype validity if not undefined
-        if (first_name) {
-          if (!(typeof first_name === "string")) {
-            throw new TypeError("First name must be of type string");
-          }
+        if (!first_name || typeof first_name !== "string") {
+          throw new TypeError("First name is required and must be a string");
         }
-        if (last_name) {
-          if (!(typeof last_name === "string")) {
-            throw new TypeError("Last name must be of type string");
-          }
+        
+        if (!last_name || typeof last_name !== "string") {
+          throw new TypeError("Last name is required and must be a string");
         }
-        if (mother_tongue) {
-          if (!(typeof mother_tongue === "string")) {
-            throw new TypeError("Mother Tongue must be of type string");
-          }
+        
+        if (!mother_tongue || typeof mother_tongue !== "string") {
+          throw new TypeError("Mother Tongue is required and must be a string");
         }
-        if (gender) {
-          if (!(typeof gender === "string")) {
-            throw new TypeError("Gender must be of type string");
-          }
+        
+        if (!gender || typeof gender !== "string") {
+          throw new TypeError("Gender is required and must be a string");
         }
-        if (address) {
-          if (!(typeof address === "string")) {
-            throw new TypeError("Address must be of type string");
-          }
+        
+        if (!address || typeof address !== "string") {
+          throw new TypeError("Address is required and must be a string");
         }
-        if (district) {
-          if (!(typeof district === "string")) {
-            throw new TypeError("District must be of type string");
-          }
+        
+        if (!district || typeof district !== "string") {
+          throw new TypeError("District is required and must be a string");
         }
-        if (pincode) {
-          if (!(typeof pincode === "number")) {
-            throw new TypeError("Pincode must be of type number");
-          }
+        
+        if (!pincode || typeof pincode !== "number") {
+          throw new TypeError("Pincode is required and must be a number");
         }
-        if (image_url) {
-          if (!(typeof image_url === "string")) {
-            throw new TypeError("Image url must be of type string");
-          }
+        
+        if (image_url && typeof image_url !== "string") {
+          throw new TypeError("Image URL must be of type string");
         }
+        
 
         const updated_user = await User_Model.updateMany(
           { _id: userid },
@@ -80,6 +72,9 @@ export class UserProfile {
               pincode: pincode,
               image_url: image_url,
             },
+          },
+          {
+            runValidators : true
           }
         );
 
@@ -119,7 +114,12 @@ export class UserProfile {
 
   static async DeleteAccount(req, res) {
     try {
-      const { userid } = req.body;
+
+      const { confirm_prompt, userid } = req.body;
+
+      if(confirm_prompt!=="Delete Account"){
+        throw new ReferenceError("Confirm prompt is not matched");
+      }
 
       //check if the userid successfully fetched from the middleware
       if (!userid) {
@@ -136,6 +136,9 @@ export class UserProfile {
 
       const deleted_user_res = await User_Model.deleteMany({ _id: userid });
 
+      //delete the authToken
+      res.clearCookie("authToken");
+
       res.status(200).json({
         message: "User deleted successfully",
         result: deleted_user_res,
@@ -149,12 +152,12 @@ export class UserProfile {
         error instanceof mongoose.MongooseError
       ) {
         res.status(400).json({
-          message: "User is not updated successfully",
+          message: "User is not deleted successfully",
           error: error.message,
         });
       } else {
-        res.status(400).json({
-          message: "User is not updated successfully",
+        res.status(500).json({
+          message: "User is not deleted successfully",
           error: error.message,
         });
       }
