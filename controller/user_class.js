@@ -2,6 +2,7 @@ import { Database } from "../lib/connect.js";
 import { User_Model } from "../models/users.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 export class User {
   static async getAllUsers(_req, res) {
@@ -28,18 +29,7 @@ export class User {
   static async RegisterUser(req, res) {
     try {
       if (await Database.isConnected()) {
-        const {
-          first_name,
-          last_name,
-          email,
-          password,
-          mother_tongue,
-          gender,
-          address,
-          district,
-          pincode,
-          image_url,
-        } = req.body;
+        const { first_name, last_name, email, password } = req.body;
 
         //Check datatype validity
         if (!(typeof first_name === "string")) {
@@ -53,38 +43,6 @@ export class User {
         }
         if (!(typeof password === "string")) {
           throw new TypeError("Password must be of type string");
-        }
-
-        // Check datatype validity if not undefined
-        if (mother_tongue) {
-          if (!(typeof mother_tongue === "string")) {
-            throw new TypeError("Mother Tongue must be of type string");
-          }
-        }
-        if (gender) {
-          if (!(typeof gender === "string")) {
-            throw new TypeError("Gender must be of type string");
-          }
-        }
-        if (address) {
-          if (!(typeof address === "string")) {
-            throw new TypeError("Address must be of type string");
-          }
-        }
-        if (district) {
-          if (!(typeof district === "string")) {
-            throw new TypeError("District must be of type string");
-          }
-        }
-        if (pincode) {
-          if (!(typeof pincode === "number")) {
-            throw new TypeError("Pincode must be of type number");
-          }
-        }
-        if (image_url) {
-          if (!(typeof image_url === "string")) {
-            throw new TypeError("Image url must be of type string");
-          }
         }
 
         // Check whether the password satisfies the regex
@@ -116,12 +74,12 @@ export class User {
           last_name: last_name,
           email: email,
           password: hashedPassword,
-          mother_tongue: mother_tongue ? mother_tongue : null,
-          gender: gender ? gender : null,
-          address: address ? address : null,
-          district: district ? district : null,
-          pincode: pincode ? pincode : null,
-          image_url: image_url ? image_url : null,
+          mother_tongue: null,
+          gender: null,
+          address: null,
+          district: null,
+          pincode: null,
+          image_url: null,
         });
 
         res.status(200).json({
@@ -140,12 +98,12 @@ export class User {
         error instanceof ReferenceError
       ) {
         res.status(400).json({
-          message: "Colleges is not enlisted successfully",
+          message: "User is not enlisted successfully",
           error: error.message,
         });
       } else {
         res.status(500).json({
-          message: "Colleges is not enlisted successfully",
+          message: "User is not enlisted successfully",
           error: error.message,
         });
       }
@@ -192,7 +150,7 @@ export class User {
 
           if (await bcrypt.compare(password, hash_pass)) {
             const token_obj = {
-              user_id : res_user[0]._id,
+              user_id: res_user[0]._id,
               first_name: res_user[0].first_name,
               last_name: res_user[0].last_name,
               email: res_user[0].email,
@@ -215,7 +173,6 @@ export class User {
               sameSite: "Strict", // Prevents CSRF attacks
               maxAge: 60 * 120 * 1000, // 2 hour expiration
             });
-
 
             res.status(200).json({
               message: "User Logged in successfully",
@@ -420,7 +377,7 @@ export class User {
 
           if (updated_user.acknowledged) {
             const token_obj = {
-              user_id : res_user[0]._id,
+              user_id: res_user[0]._id,
               first_name: res_user[0].first_name,
               last_name: res_user[0].last_name,
               email: res_user[0].email,
@@ -445,7 +402,6 @@ export class User {
               "Something Went wrong while changing password"
             );
           }
-
         } else {
           throw new ReferenceError("User not exists : check the token again");
         }
@@ -478,6 +434,49 @@ export class User {
           error: error.message,
         });
       }
+    }
+  }
+
+  static async isLoggedIn(req, res, next) {
+    try {
+      const auth_token = req.cookies.authToken;
+      if (!auth_token) {
+        throw new Error("User Authorization failed : Token not available");
+      }
+
+      const decoded_token = await jwt.verify(
+        auth_token,
+        process.env.JWT_SECRET_KEY
+      );
+
+      const { user_id, email } = decoded_token;
+
+      if (!mongoose.Types.ObjectId.isValid(user_id)) {
+        throw new TypeError(
+          "User Authorization failed : Invalid User ID format in token"
+        );
+      }
+
+      const res_user = await User_Model.find({ email: email });
+
+      if (res_user.length !== 0) {
+        if(req.body){
+          req.body.userid = res_user[0]._id;
+        }
+
+        next();
+      } else {
+        throw new ReferenceError(
+          "User Authorization failed : user with specified email-id not exists"
+        );
+      }
+    } catch (error) {
+      console.log(error.message);
+      res.status(400).json({
+        message: "Api call failed : Authorization error",
+        error: error.message,
+        stack : error.stack
+      });
     }
   }
 }
