@@ -32,7 +32,8 @@ export class Review {
       if (!(await Database.isConnected())) {
         throw new Error("Database server is not connected properly");
       }
-      const { full_name, email, feedback, image_url, rating, pg_id } = req.body;
+      const { full_name, email, feedback, image_url, rating } = req.body;
+      const { pg_id } = req.params;
 
       if (typeof full_name !== "string")
         throw new TypeError("Full name must be of type string");
@@ -44,8 +45,6 @@ export class Review {
         throw new TypeError("Image URL must be of type string");
       if (typeof rating !== "number")
         throw new TypeError("Rating must be of type number");
-      if (typeof pg_id !== "string")
-        throw new TypeError("PG ID must be of type string");
 
       const review = new Review_Model({
         full_name,
