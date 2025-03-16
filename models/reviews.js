@@ -30,7 +30,8 @@ const reviewSchema = new Schema(
     },
     pg_id: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: PgInfo,
+      ref: "Pg",
+      required: true,
     },
   },
   { timestamps: true }
