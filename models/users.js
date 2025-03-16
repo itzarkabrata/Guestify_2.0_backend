@@ -51,7 +51,9 @@ const UsersSchema = new Schema(
     pincode: {
       type: Number,
       validate: {
-        validator: (value) => /^\d{6}$/.test(value.toString()),
+        validator: (value) => {
+          return (value===null || /^\d{6}$/.test(value?.toString())) ? true : false
+        },
         message: "Pincode must be exactly 6 digits",
       },
     },
