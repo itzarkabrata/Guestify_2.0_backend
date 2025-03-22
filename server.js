@@ -23,11 +23,15 @@ const app = express();
 const port_number = process.env.PORT || 3000;
 
 //in-build middleware
-app.use(express.static(path.join(__dirname,"user-assets")));
+app.use("/user-assets", express.static(path.join(__dirname, "user-assets")));
 app.use(express.urlencoded({extended : true}));
 app.use(express.json());
 app.use(cookieParser());
 
+
+// app.get("/",(req,res)=>{
+//     res.sendFile(path.join(__dirname,"index.html"));
+// })
 
 // routes
 app.use("/backend",college_router);
@@ -37,8 +41,6 @@ app.use("/backend",user_router);
 app.use("/backend",pg_router);
 
 app.use("/backend",user_profile_router);
-
-
 
 
 //response for Undeclared api endpoint
