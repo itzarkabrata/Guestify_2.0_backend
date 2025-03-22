@@ -7,3 +7,7 @@ node_modules/
 .env.development
 .env.production
 .env.test
+
+
+#ignore html files
+index.html

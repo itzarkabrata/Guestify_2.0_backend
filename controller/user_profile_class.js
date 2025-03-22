@@ -2,20 +2,13 @@ import mongoose from "mongoose";
 import { Database } from "../lib/connect.js";
 import { User_Model } from "../models/users.js";
 
-import { fileURLToPath } from "url";
-import path from "path";
-
-// Resolve __dirname in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 export class UserProfile {
   static async UpdateDetails(req, res) {
     try {
       if (await Database.isConnected()) {
 
         if (req.file) {
-          req.body.image_url = path.join(__dirname,"../",req.file.path);
+          req.body.image_url = `${req.protocol}://${req.get("host")}/${req.file.path}`;
         }
 
         const {
