@@ -10,4 +10,4 @@ node_modules/
 
 
 #ignore html files
-.html
+index.html
