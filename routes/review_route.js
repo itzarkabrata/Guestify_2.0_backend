@@ -5,6 +5,6 @@ const router = Router();
 
 router.get("/getReviews/:pg_id", Review.getReviews);
 
-router.post("/addReview", Review.addReview);
+router.post("/addReview/:pg_id", Review.addReview);
 
 export const review_router = router;
