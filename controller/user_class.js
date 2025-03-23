@@ -173,7 +173,7 @@ export class User {
               sameSite: "None", 
               domain: ".vercel.app",
               path: "/",
-              maxAge: 2 * 60 * 60 * 1000,
+              expires: new Date(Date.now() + 2 * 3600000)
             });
 
             res.status(200).json({
