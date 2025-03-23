@@ -170,7 +170,7 @@ export class User {
             res.cookie("authToken", token, {
               httpOnly: false, // Prevents JavaScript access
               secure: false, // Ensures the cookie is sent over HTTPS (set to false for local testing)
-              sameSite: "Strict", // Prevents CSRF attacks
+              sameSite: "Lax",
               maxAge: 60 * 120 * 1000, // 2 hour expiration
             });
 
