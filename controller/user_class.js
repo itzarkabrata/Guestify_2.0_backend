@@ -171,6 +171,8 @@ export class User {
               httpOnly: false, // Prevents JavaScript access
               secure: process.env.NODE_ENV !== "development", // Ensures the cookie is sent over HTTPS (set to false for local testing)
               sameSite: "None",
+              domain: process.env.NODE_ENV==="development" ? "localhost":"guestify-2-0.vercel.app",
+              path:"/",
               maxAge: 60 * 120 * 1000, // 2 hour expiration
             });
 
