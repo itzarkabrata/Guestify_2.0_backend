@@ -168,7 +168,7 @@ export class User {
 
             // store the token in the cookie
             res.cookie("authToken", token, {
-              httpOnly: true,
+              httpOnly: false,
               secure: true, 
               sameSite: "None", 
               domain: ".vercel.app",
