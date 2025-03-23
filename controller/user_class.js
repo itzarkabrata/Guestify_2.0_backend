@@ -169,7 +169,7 @@ export class User {
             // store the token in the cookie
             res.cookie("authToken", token, {
               httpOnly: false, // Prevents JavaScript access
-              secure: process.env.NODE_ENV !== "development", // Ensures the cookie is sent over HTTPS (set to false for local testing)
+              secure: true, // Ensures the cookie is sent over HTTPS (set to false for local testing)
               sameSite: "None",
               domain: process.env.NODE_ENV==="development" ? "localhost":".vercel.app",
               path:"/",
