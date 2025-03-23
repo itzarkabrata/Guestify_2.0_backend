@@ -168,12 +168,12 @@ export class User {
 
             // store the token in the cookie
             res.cookie("authToken", token, {
-              httpOnly: false,
-              secure: true, 
-              sameSite: "None", 
-              domain: ".vercel.app",
-              path: "/",
-              expires: new Date(Date.now() + 2 * 3600000)
+              httpOnly: false, // Prevents JavaScript access
+              secure: process.env.NODE_ENV !== "development", // Ensures the cookie is sent over HTTPS (set to false for local testing)
+              sameSite: "None",
+              domain: process.env.NODE_ENV==="development" ? "localhost":".vercel.app",
+              path:"/",
+              maxAge: 60 * 120 * 1000, // 2 hour expiration
             });
 
             res.status(200).json({

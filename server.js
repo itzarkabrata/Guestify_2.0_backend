@@ -58,6 +58,7 @@ app.listen(port_number, async () => {
 
     console.log("Connection with mongoDB database established successfully");
     console.log(`Server started at port number ${port_number}`);
+    console.log(process.env.NODE_ENV);
   } catch (err) {
     console.log(err.message);
   }
