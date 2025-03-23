@@ -169,8 +169,8 @@ export class User {
             // store the token in the cookie
             res.cookie("authToken", token, {
               httpOnly: false, // Prevents JavaScript access
-              secure: false, // Ensures the cookie is sent over HTTPS (set to false for local testing)
-              sameSite: "Lax",
+              secure: process.env.NODE_ENV !== "development", // Ensures the cookie is sent over HTTPS (set to false for local testing)
+              sameSite: "None",
               maxAge: 60 * 120 * 1000, // 2 hour expiration
             });
 
@@ -206,26 +206,24 @@ export class User {
 
   static async logoutUser(_req, res) {
     try {
-      
       res.clearCookie("authToken", {
         httpOnly: false,
         secure: false,
         sameSite: "Strict",
       });
-  
+
       res.status(200).json({
         message: "User logged out successfully",
       });
     } catch (error) {
       console.error("Logout Error:", error.message);
-  
+
       res.status(500).json({
         message: "An error occurred during logout",
         error: error.message,
       });
     }
   }
-  
 
   static async forgetPassword(req, res) {
     try {
@@ -475,7 +473,7 @@ export class User {
       res.status(400).json({
         message: "Api call failed : Authorization error",
         error: error.message,
-        stack : error.stack
+        stack: error.stack,
       });
     }
   }
