@@ -9,12 +9,8 @@ import { user_router } from "./routes/user_route.js";
 import { pg_router } from "./routes/pg_route.js";
 import { review_router } from "./routes/review_route.js";
 import { user_profile_router } from "./routes/user_profile_route.js";
-import { fileURLToPath } from "url";
 import path from "path";
-
-// Resolve __dirname in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { __dirname } from "./lib/common.utils.js";
 
 // creating app instance
 const app = express();
