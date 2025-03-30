@@ -166,6 +166,7 @@ export class User {
               }
             );
 
+            /*
             // store the token in the cookie
             res.cookie("authToken", token, {
               httpOnly: true, // Prevents JavaScript access
@@ -175,6 +176,7 @@ export class User {
               path: "/",
               maxAge: 2 * 60 * 60 * 1000, // 2 hours in milliseconds
             });
+            */
 
             res.status(200).json({
               message: "User Logged in successfully",
