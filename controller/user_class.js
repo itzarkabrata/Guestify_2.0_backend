@@ -166,15 +166,17 @@ export class User {
               }
             );
 
+            /*
             // store the token in the cookie
             res.cookie("authToken", token, {
-              httpOnly: false, // Prevents JavaScript access
-              secure: true, // Ensures the cookie is sent over HTTPS (set to false for local testing)
-              sameSite: "None",
-              domain: process.env.NODE_ENV==="development" ? "localhost":".vercel.app",
-              path:"/",
-              maxAge: 60 * 120 * 1000, // 2 hour expiration
+              httpOnly: true, // Prevents JavaScript access
+              secure: process.env.NODE_ENV !== "development", // Use HTTPS in production
+              sameSite: "None", // Allow cross-site cookies (MUST be secure)
+              domain: process.env.NODE_ENV === "development" ? undefined : ".vercel.app",
+              path: "/",
+              maxAge: 2 * 60 * 60 * 1000, // 2 hours in milliseconds
             });
+            */
 
             res.status(200).json({
               message: "User Logged in successfully",
