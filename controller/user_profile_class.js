@@ -79,6 +79,13 @@ export class UserProfile {
         );
 
         if (updated_user.acknowledged) {
+          //creating event
+          const msg = JSON.stringify(
+            EventObj.createEventObj("transactional","User details updated",false,"success",res_user[0]._id,req.cookies.device_token)
+          );
+
+          //publishing to amqp server
+          AMQP.publishMsg("noti-queue", msg);
           res.status(200).json({
             message: "User details updated successfully",
             result: updated_user,

@@ -3,6 +3,8 @@ import { User_Model } from "../models/users.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+import { EventObj } from "../lib/event.config.js";
+import { AMQP } from "../lib/amqp.connect.js";
 
 export class User {
   static async getAllUsers(_req, res) {
@@ -81,6 +83,14 @@ export class User {
           pincode: null,
           image_url: null,
         });
+
+        //creating event
+        const msg = JSON.stringify(
+          EventObj.createEventObj("transactional","User Registration done in the account",false,"success",res_user[0]._id,req.cookies.device_token)
+        );
+
+        //publishing to amqp server
+        AMQP.publishMsg("noti-queue", msg);
 
         res.status(200).json({
           message:
@@ -166,7 +176,7 @@ export class User {
               }
             );
 
-            /*
+            
             // store the token in the cookie
             res.cookie("authToken", token, {
               httpOnly: true, // Prevents JavaScript access
@@ -176,7 +186,15 @@ export class User {
               path: "/",
               maxAge: 2 * 60 * 60 * 1000, // 2 hours in milliseconds
             });
-            */
+            
+
+            //creating event
+            const msg = JSON.stringify(
+              EventObj.createEventObj("transactional","User Logged in to the account",false,"success",res_user[0]._id,req.cookies.device_token)
+            );
+
+            //publishing to amqp server
+            AMQP.publishMsg("noti-queue", msg);
 
             res.status(200).json({
               message: "User Logged in successfully",
@@ -208,13 +226,21 @@ export class User {
     }
   }
 
-  static async logoutUser(_req, res) {
+  static async logoutUser(req, res) {
     try {
       res.clearCookie("authToken", {
         httpOnly: false,
         secure: false,
         sameSite: "Strict",
       });
+
+      //creating event
+      const msg = JSON.stringify(
+        EventObj.createEventObj("transactional","User Logged out from the account",false,"success",res_user[0]._id,req.cookies.device_token)
+      );
+
+      //publishing to amqp server
+      AMQP.publishMsg("noti-queue", msg);
 
       res.status(200).json({
         message: "User logged out successfully",
@@ -394,6 +420,14 @@ export class User {
                 notBefore: "2s",
               }
             );
+
+            //creating event
+          const msg = JSON.stringify(
+            EventObj.createEventObj("transactional","User passowrd has been changed",false,"success",res_user[0]._id,req.cookies.device_token)
+          );
+
+          //publishing to amqp server
+          AMQP.publishMsg("noti-queue", msg);
 
             res.status(200).json({
               message: "Password changed successfully",
