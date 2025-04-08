@@ -71,7 +71,7 @@ export class User {
         // Password hashing
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        await User_Model.insertOne({
+        const added_user = await User_Model.insertOne({
           first_name: first_name,
           last_name: last_name,
           email: email,
@@ -86,7 +86,7 @@ export class User {
 
         //creating event
         const msg = JSON.stringify(
-          EventObj.createEventObj("transactional","User Registration done in the account",false,"success",res_user[0]._id,req.cookies.device_token)
+          EventObj.createEventObj("transactional","User Registration done in the account",false,"success",added_user._id,req.cookies.device_token)
         );
 
         //publishing to amqp server
@@ -228,6 +228,23 @@ export class User {
 
   static async logoutUser(req, res) {
     try {
+      const auth_token = req.cookies.authToken;
+      if (!auth_token) {
+        throw new Error("User Authorization failed : Token not available");
+      }
+
+      const decoded_token = await jwt.verify(
+        auth_token,
+        process.env.JWT_SECRET_KEY
+      );
+
+      const { user_id } = decoded_token;
+
+      if (!mongoose.Types.ObjectId.isValid(user_id)) {
+        throw new TypeError(
+          "User Authorization failed : Invalid User ID format in token"
+        );
+      }
       res.clearCookie("authToken", {
         httpOnly: false,
         secure: false,
@@ -236,7 +253,7 @@ export class User {
 
       //creating event
       const msg = JSON.stringify(
-        EventObj.createEventObj("transactional","User Logged out from the account",false,"success",res_user[0]._id,req.cookies.device_token)
+        EventObj.createEventObj("transactional","User Logged out from the account",false,"success",user_id,req.cookies.device_token)
       );
 
       //publishing to amqp server
@@ -298,6 +315,14 @@ export class User {
               notBefore: "2s",
             }
           );
+
+          //creating event
+          const msg = JSON.stringify(
+            EventObj.createEventObj("transactional","Forget Password Token Sent successfully",false,"success",res_user[0]._id,req.cookies.device_token)
+          );
+
+          //publishing to amqp server
+          AMQP.publishMsg("noti-queue", msg);
 
           res.status(200).json({
             message: "Token Send successfully",
