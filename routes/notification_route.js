@@ -5,4 +5,6 @@ const router = Router();
 
 router.get("/getNotification",Notification.getNotifications);
 
+router.put("/updateNotification/:id",Notification.makeNotiRead);
+
 export const notification_router = router;
