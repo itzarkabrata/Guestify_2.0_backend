@@ -105,4 +105,35 @@ export class Notification {
         });
     }
   }
+
+  static async makeNotiRead(req,res){
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+      const {id} = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new TypeError(
+          "Notification Authorization failed : Invalid Notification ID format in params"
+        );
+      }
+
+      const res_noti = await Notification_Model.updateOne({_id:id},{$set : {isRead : true}})
+
+      if(res_noti.acknowledged){
+        res.status(200).json({
+          message : "Notification Updated Successfully",
+          result : res_noti
+        })
+      }
+
+    } catch (error) {
+      console.log(error.message);
+        res.status(400).json({
+            message: "Notifications not updated successfully",
+            error: error.message,
+        });
+    }
+  }
 }
