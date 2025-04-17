@@ -61,9 +61,9 @@ export class Notification {
       if (!(await Database.isConnected())) {
         throw new Error("Database server is not connected properly");
       }
-      const auth_token = req.cookies.authToken;
-      const device_token = req.cookies.device_token;
-      if (!auth_token) {
+      const auth_token = req.headers["authorization"];
+      const device_token = req.headers["devicetoken"];
+      if (!auth_token || !auth_token.split(" ")[1]) {
         if (!device_token) {
           throw new Error("Device token not available");
         } else {
@@ -79,7 +79,7 @@ export class Notification {
       }
 
       const decoded_token = await jwt.verify(
-        auth_token,
+        auth_token.split(" ")[1],
         process.env.JWT_SECRET_KEY
       );
 
