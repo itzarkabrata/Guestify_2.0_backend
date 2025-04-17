@@ -86,7 +86,7 @@ export class User {
 
         //creating event
         const msg = JSON.stringify(
-          EventObj.createEventObj("transactional","User Registration done in the account",false,"success",added_user._id,req.cookies.device_token)
+          EventObj.createEventObj("transactional","User Registration done in the account",false,"success",added_user._id,req.headers["devicetoken"])
         );
 
         //publishing to amqp server
@@ -190,7 +190,7 @@ export class User {
 
             //creating event
             const msg = JSON.stringify(
-              EventObj.createEventObj("transactional","User Logged in to the account",false,"success",res_user[0]._id,req.cookies.device_token)
+              EventObj.createEventObj("transactional","User Logged in to the account",false,"success",res_user[0]._id,req.headers["devicetoken"])
             );
 
             //publishing to amqp server
@@ -228,13 +228,16 @@ export class User {
 
   static async logoutUser(req, res) {
     try {
-      const auth_token = req.cookies.authToken;
-      if (!auth_token) {
+      const auth_token = req.headers["authorization"];
+      if(!auth_token){
+        throw new Error("User Authorization failed : Authorization header not available");
+      }
+      if (!auth_token.split(" ")[1]) {
         throw new Error("User Authorization failed : Token not available");
       }
 
       const decoded_token = await jwt.verify(
-        auth_token,
+        auth_token.split(" ")[1],
         process.env.JWT_SECRET_KEY
       );
 
@@ -253,7 +256,7 @@ export class User {
 
       //creating event
       const msg = JSON.stringify(
-        EventObj.createEventObj("transactional","User Logged out from the account",false,"success",user_id,req.cookies.device_token)
+        EventObj.createEventObj("transactional","User Logged out from the account",false,"success",user_id,req.headers["devicetoken"])
       );
 
       //publishing to amqp server
@@ -318,7 +321,7 @@ export class User {
 
           //creating event
           const msg = JSON.stringify(
-            EventObj.createEventObj("transactional","Forget Password Token Sent successfully",false,"success",res_user[0]._id,req.cookies.device_token)
+            EventObj.createEventObj("transactional","Forget Password Token Sent successfully",false,"success",res_user[0]._id,req.headers["devicetoken"])
           );
 
           //publishing to amqp server
@@ -448,7 +451,7 @@ export class User {
 
             //creating event
           const msg = JSON.stringify(
-            EventObj.createEventObj("transactional","User passowrd has been changed",false,"success",res_user[0]._id,req.cookies.device_token)
+            EventObj.createEventObj("transactional","User passowrd has been changed",false,"success",res_user[0]._id,req.headers["devicetoken"])
           );
 
           //publishing to amqp server
@@ -500,13 +503,16 @@ export class User {
 
   static async isLoggedIn(req, res, next) {
     try {
-      const auth_token = req.cookies.authToken;
-      if (!auth_token) {
+      const auth_token = req.headers["authorization"];
+      if(!auth_token){
+        throw new Error("User Authorization failed : Authorization header not available");
+      }
+      if (!auth_token.split(" ")[1]) {
         throw new Error("User Authorization failed : Token not available");
       }
 
       const decoded_token = await jwt.verify(
-        auth_token,
+        auth_token.split(" ")[1],
         process.env.JWT_SECRET_KEY
       );
 
