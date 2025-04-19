@@ -19,4 +19,6 @@ router.put(
 
 router.delete("/deleteAccount", UserProfile.DeleteAccount);
 
+router.get("/getProfile/:uid",UserProfile.getProfile);
+
 export const user_profile_router = router;

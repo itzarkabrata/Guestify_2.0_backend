@@ -3,12 +3,55 @@ import { Database } from "../lib/connect.js";
 import { User_Model } from "../models/users.js";
 
 export class UserProfile {
+  static async getProfile(req, res) {
+    try {
+      if (await Database.isConnected()) {
+        const {uid} = req.params;
+        const {userid} = req.body;
+
+        //check if the userid successfully fetched from the middleware
+        if (!userid) {
+          throw new TypeError(
+            "Authorization failed : try to call get api without token"
+          );
+        }
+
+        const user = await User_Model.find({_id:uid});
+
+        res.status(200).json({
+          message: "User fetched successfully",
+          result: user,
+        });
+      } else {
+        throw new Error("Database server is not connected properly");
+      }
+    } catch (error) {
+      console.log(error.message);
+
+      if (
+        error instanceof ReferenceError ||
+        error instanceof TypeError ||
+        error instanceof mongoose.MongooseError
+      ) {
+        res.status(400).json({
+          message: "User is not fetched successfully",
+          error: error.message,
+        });
+      } else {
+        res.status(400).json({
+          message: "User is not fetched successfully",
+          error: error.message,
+        });
+      }
+    }
+  }
   static async UpdateDetails(req, res) {
     try {
       if (await Database.isConnected()) {
-
         if (req.file) {
-          req.body.image_url = `${req.protocol}://${req.get("host")}/${req.file.path}`;
+          req.body.image_url = `${req.protocol}://${req.get("host")}/${
+            req.file.path
+          }`;
         }
 
         const {
@@ -34,27 +77,27 @@ export class UserProfile {
         if (!first_name || typeof first_name !== "string") {
           throw new TypeError("First name is required and must be a string");
         }
-        
+
         if (!last_name || typeof last_name !== "string") {
           throw new TypeError("Last name is required and must be a string");
         }
-        
+
         if (!mother_tongue || typeof mother_tongue !== "string") {
           throw new TypeError("Mother Tongue is required and must be a string");
         }
-        
+
         if (!gender || typeof gender !== "string") {
           throw new TypeError("Gender is required and must be a string");
         }
-        
+
         if (!address || typeof address !== "string") {
           throw new TypeError("Address is required and must be a string");
         }
-        
+
         if (!district || typeof district !== "string") {
           throw new TypeError("District is required and must be a string");
         }
-        
+
         if (!pincode || typeof Number(pincode) !== "number") {
           throw new TypeError("Pincode is required and must be a number");
         }
@@ -74,14 +117,21 @@ export class UserProfile {
             },
           },
           {
-            runValidators : true
+            runValidators: true,
           }
         );
 
-        if (updated_user.acknowledged){
+        if (updated_user.acknowledged) {
           //creating event
           const msg = JSON.stringify(
-            EventObj.createEventObj("transactional","User details updated",false,"success",res_user[0]._id,req.headers["devicetoken"])
+            EventObj.createEventObj(
+              "transactional",
+              "User details updated",
+              false,
+              "success",
+              res_user[0]._id,
+              req.headers["devicetoken"]
+            )
           );
 
           //publishing to amqp server
@@ -121,10 +171,9 @@ export class UserProfile {
 
   static async DeleteAccount(req, res) {
     try {
-
       const { confirm_prompt, userid } = req.body;
 
-      if(confirm_prompt!=="Delete Account"){
+      if (confirm_prompt !== "Delete Account") {
         throw new ReferenceError("Confirm prompt is not matched");
       }
 
