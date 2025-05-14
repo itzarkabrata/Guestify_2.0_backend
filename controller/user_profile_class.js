@@ -20,7 +20,7 @@ export class UserProfile {
 
         res.status(200).json({
           message: "User fetched successfully",
-          result: user,
+          data: user,
         });
       } else {
         throw new Error("Database server is not connected properly");
@@ -138,7 +138,7 @@ export class UserProfile {
           AMQP.publishMsg("noti-queue", msg);
           res.status(200).json({
             message: "User details updated successfully",
-            result: updated_user,
+            data: updated_user,
           });
         } else {
           throw new ReferenceError(
@@ -197,7 +197,7 @@ export class UserProfile {
 
       res.status(200).json({
         message: "User deleted successfully",
-        result: deleted_user_res,
+        data: deleted_user_res,
       });
     } catch (error) {
       console.log(error.message);

@@ -287,7 +287,7 @@ export class Pg {
 
       res.status(200).json({
         message: "PG updated successfully",
-        updatedPg,
+        data : updatedPg,
       });
     } catch (error) {
       console.error(error.message);

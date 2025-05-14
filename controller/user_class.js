@@ -14,7 +14,7 @@ export class User {
 
         res.status(200).json({
           message: "Users fetched successfully",
-          result: users_list,
+          data: users_list,
         });
       } else {
         throw new Error("Database server is not connected properly");
@@ -198,7 +198,9 @@ export class User {
 
             res.status(200).json({
               message: "User Logged in successfully",
-              token: token,
+              data:{
+                token: token,
+              }
             });
           } else {
             throw new EvalError("Invalid Password : Password not matched");
@@ -329,7 +331,9 @@ export class User {
 
           res.status(200).json({
             message: "Token Send successfully",
-            token: forget_token,
+            data : {
+              token: forget_token,
+            }
           });
         } else {
           throw new ReferenceError("User with given email-id not exists");
@@ -459,7 +463,9 @@ export class User {
 
             res.status(200).json({
               message: "Password changed successfully",
-              token: updated_token,
+              data : {
+                token: updated_token,
+              }
             });
           } else {
             throw new ReferenceError(

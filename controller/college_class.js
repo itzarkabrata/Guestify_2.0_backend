@@ -10,7 +10,7 @@ export class College {
 
         res.status(200).json({
           message: "College fetched successfully",
-          result: college_list,
+          data: college_list,
         });
       } else {
         throw new Error("Database server is not connected properly");
@@ -48,7 +48,7 @@ export class College {
   
       res.status(200).json({
         message: "College fetched successfully",
-        result: college,
+        data: college,
       });
     } catch (error) {
       console.error("Error fetching college:", error.message);
@@ -113,7 +113,7 @@ export class College {
 
         res.status(200).json({
           message: "College fetched successfully",
-          result: enlisted_college,
+          data: enlisted_college,
         });
       } else {
         throw new Error("Database server is not connected properly");
