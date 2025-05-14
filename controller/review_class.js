@@ -14,7 +14,7 @@ export class Review {
 
         res.status(200).json({
           message: "Reviews fetch successfully",
-          result: reviews,
+          data: reviews,
         });
       } else {
         throw new Error("Database server is not connected properly");

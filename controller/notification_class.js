@@ -73,7 +73,7 @@ export class Notification {
 
           res.status(200).json({
             message: "Notifications fetched successfully",
-            results: res_noti,
+            data: res_noti,
           });
         }
       }
@@ -95,7 +95,7 @@ export class Notification {
 
       res.status(200).json({
         message: "Notifications fetched successfully",
-        results: res_noti,
+        data: res_noti,
       });
     } catch (error) {
         console.log(error.message);
@@ -124,7 +124,7 @@ export class Notification {
       if(res_noti.acknowledged){
         res.status(200).json({
           message : "Notification Updated Successfully",
-          result : res_noti
+          data : res_noti
         })
       }
 
