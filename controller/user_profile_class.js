@@ -66,12 +66,16 @@ export class UserProfile {
           userid,
         } = req.body;
 
+        console.log(userid)
+        
         //check if the userid successfully fetched from the middleware
         if (!userid) {
+          console.log("error happens");
           throw new TypeError(
             "Authorization failed : try to call update api without token"
           );
         }
+
 
         // Check datatype validity if not undefined
         if (!first_name || typeof first_name !== "string") {
