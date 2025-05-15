@@ -73,6 +73,8 @@ export class UserProfile {
           );
         }
 
+        console.log(userid)
+
         // Check datatype validity if not undefined
         if (!first_name || typeof first_name !== "string") {
           throw new TypeError("First name is required and must be a string");
