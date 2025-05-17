@@ -3,13 +3,14 @@ import { Database } from "../lib/connect.js";
 import { User_Model } from "../models/users.js";
 import { EventObj } from "../lib/event.config.js";
 import { AMQP } from "../lib/amqp.connect.js";
+import jwt from "jsonwebtoken";
 
 export class UserProfile {
   static async getProfile(req, res) {
     try {
       if (await Database.isConnected()) {
-        const {uid} = req.params;
-        const {userid} = req.body;
+        const { uid } = req.params;
+        const { userid } = req.body;
 
         //check if the userid successfully fetched from the middleware
         if (!userid) {
@@ -18,7 +19,7 @@ export class UserProfile {
           );
         }
 
-        const user = await User_Model.find({_id:uid});
+        const user = await User_Model.find({ _id: uid });
 
         res.status(200).json({
           message: "User fetched successfully",
@@ -68,14 +69,13 @@ export class UserProfile {
         } = req.body;
 
         const userid = req.user.id;
-        
+
         //check if the userid successfully fetched from the middleware
         if (!userid) {
           throw new TypeError(
             "Authorization failed : try to call update api without token"
           );
         }
-
 
         // Check datatype validity if not undefined
         if (!first_name || typeof first_name !== "string") {
@@ -125,11 +125,25 @@ export class UserProfile {
           }
         );
 
-        const updated_user = await User_Model.find({ _id: userid });
-
         // console.log(updated_user);
 
         if (res_ack.acknowledged) {
+
+          const updated_user = await User_Model.find({ _id: userid });
+
+          const token_obj = {
+            user_id: updated_user[0]._id,
+            first_name: updated_user[0].first_name,
+            last_name: updated_user[0].last_name,
+            email: updated_user[0].email,
+            image_url: updated_user[0].image_url,
+          };
+          // Token creation
+          const token = await jwt.sign(token_obj, process.env.JWT_SECRET_KEY, {
+            expiresIn: "2h",
+            notBefore: "2s",
+          });
+
           //creating event
           const msg = JSON.stringify(
             EventObj.createEventObj(
@@ -146,7 +160,10 @@ export class UserProfile {
           AMQP.publishMsg("noti-queue", msg);
           res.status(200).json({
             message: "User details updated successfully",
-            data: updated_user[0],
+            data: {
+              info : updated_user[0],
+              updated_token : token
+            },
           });
         } else {
           throw new ReferenceError(
