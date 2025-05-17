@@ -132,7 +132,7 @@ export class UserProfile {
               "User details updated",
               false,
               "success",
-              res_user[0]._id,
+              updated_user[0]._id,
               req.headers["devicetoken"]
             )
           );
