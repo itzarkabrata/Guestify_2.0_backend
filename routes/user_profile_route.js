@@ -6,19 +6,23 @@ import { fileFilter, storage } from "../lib/assetstorage_config.js";
 
 const router = Router();
 
-// Check Authorization before any api call
-router.use(User.isLoggedIn);
-
 const upload = multer({ storage: storage, fileFilter: fileFilter });
 
-router.put(
+router.post(
   "/updateProfile",
+  User.isLoggedIn,
   upload.single("image_url"),
+  (req, res, next) => {
+    console.log(req.body);
+    console.log(req.user);
+    console.log(req.file);
+    next();
+  },
   UserProfile.UpdateDetails
 );
 
-router.delete("/deleteAccount", UserProfile.DeleteAccount);
+router.delete("/deleteAccount", User.isLoggedIn, UserProfile.DeleteAccount);
 
-router.get("/getProfile/:uid",UserProfile.getProfile);
+router.get("/getProfile/:uid", User.isLoggedIn, UserProfile.getProfile);
 
 export const user_profile_router = router;

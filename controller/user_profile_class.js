@@ -63,14 +63,12 @@ export class UserProfile {
           district,
           pincode,
           image_url,
-          userid,
         } = req.body;
 
-        console.log(userid)
+        const userid = req.user.id;
         
         //check if the userid successfully fetched from the middleware
         if (!userid) {
-          console.log("error happens");
           throw new TypeError(
             "Authorization failed : try to call update api without token"
           );
