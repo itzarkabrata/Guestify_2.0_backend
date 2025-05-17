@@ -8,7 +8,7 @@ const router = Router();
 
 const upload = multer({ storage: storage, fileFilter: fileFilter });
 
-router.post(
+router.put(
   "/updateProfile",
   User.isLoggedIn,
   upload.single("image_url"),

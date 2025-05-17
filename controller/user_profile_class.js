@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { Database } from "../lib/connect.js";
 import { User_Model } from "../models/users.js";
+import { EventObj } from "../lib/event.config.js";
 
 export class UserProfile {
   static async getProfile(req, res) {
