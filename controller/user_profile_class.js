@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { Database } from "../lib/connect.js";
 import { User_Model } from "../models/users.js";
 import { EventObj } from "../lib/event.config.js";
+import { AMQP } from "../lib/amqp.connect.js";
 
 export class UserProfile {
   static async getProfile(req, res) {
@@ -105,7 +106,7 @@ export class UserProfile {
           throw new TypeError("Pincode is required and must be a number");
         }
 
-        const updated_user = await User_Model.updateMany(
+        const res_ack = await User_Model.updateMany(
           { _id: userid },
           {
             $set: {
@@ -124,7 +125,11 @@ export class UserProfile {
           }
         );
 
-        if (updated_user.acknowledged) {
+        const updated_user = await User_Model.find({ _id: userid });
+
+        // console.log(updated_user);
+
+        if (res_ack.acknowledged) {
           //creating event
           const msg = JSON.stringify(
             EventObj.createEventObj(
@@ -141,7 +146,7 @@ export class UserProfile {
           AMQP.publishMsg("noti-queue", msg);
           res.status(200).json({
             message: "User details updated successfully",
-            data: updated_user,
+            data: updated_user[0],
           });
         } else {
           throw new ReferenceError(
