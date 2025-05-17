@@ -524,6 +524,8 @@ export class User {
 
       const { user_id, email } = decoded_token;
 
+      console.log(user_id,"TOken from islogged in function");
+
       if (!mongoose.Types.ObjectId.isValid(user_id)) {
         throw new TypeError(
           "User Authorization failed : Invalid User ID format in token"
