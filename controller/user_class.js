@@ -524,7 +524,7 @@ export class User {
 
       const { user_id, email } = decoded_token;
 
-      console.log(user_id,"TOken from islogged in function");
+      // console.log(user_id,"TOken from islogged in function");
 
       if (!mongoose.Types.ObjectId.isValid(user_id)) {
         throw new TypeError(
@@ -539,6 +539,10 @@ export class User {
           req.body = {}; // Ensure req.body is always an object
         }
         req.body.userid = res_user[0]._id;
+
+        // only for formdata objects i am again initializes this becouse multer clears req.body data
+        req.user = {id : res_user[0]._id};
+
         next();
       } else {
         throw new ReferenceError(
