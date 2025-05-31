@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { EventObj } from "../lib/event.config.js";
 import { AMQP } from "../lib/amqp.connect.js";
+import { Nodemailer } from "../lib/email/email.config.js";
 
 export class User {
   static async getAllUsers(_req, res) {
@@ -86,7 +87,14 @@ export class User {
 
         //creating event
         const msg = JSON.stringify(
-          EventObj.createEventObj("transactional","User Registration done in the account",false,"success",added_user._id,req.headers["devicetoken"])
+          EventObj.createEventObj(
+            "transactional",
+            "User Registration done in the account",
+            false,
+            "success",
+            added_user._id,
+            req.headers["devicetoken"]
+          )
         );
 
         //publishing to amqp server
@@ -176,21 +184,29 @@ export class User {
               }
             );
 
-            
             // store the token in the cookie
             res.cookie("authToken", token, {
               httpOnly: true, // Prevents JavaScript access
               secure: process.env.NODE_ENV !== "development", // Use HTTPS in production
               sameSite: "None", // Allow cross-site cookies (MUST be secure)
-              domain: process.env.NODE_ENV === "development" ? undefined : ".vercel.app",
+              domain:
+                process.env.NODE_ENV === "development"
+                  ? undefined
+                  : ".vercel.app",
               path: "/",
               maxAge: 2 * 60 * 60 * 1000, // 2 hours in milliseconds
             });
-            
 
             //creating event
             const msg = JSON.stringify(
-              EventObj.createEventObj("transactional","User Logged in to the account",false,"success",res_user[0]._id,req.headers["devicetoken"])
+              EventObj.createEventObj(
+                "transactional",
+                "User Logged in to the account",
+                false,
+                "success",
+                res_user[0]._id,
+                req.headers["devicetoken"]
+              )
             );
 
             //publishing to amqp server
@@ -198,9 +214,9 @@ export class User {
 
             res.status(200).json({
               message: "User Logged in successfully",
-              data:{
+              data: {
                 token: token,
-              }
+              },
             });
           } else {
             throw new EvalError("Invalid Password : Password not matched");
@@ -231,8 +247,10 @@ export class User {
   static async logoutUser(req, res) {
     try {
       const auth_token = req.headers["authorization"];
-      if(!auth_token){
-        throw new Error("User Authorization failed : Authorization header not available");
+      if (!auth_token) {
+        throw new Error(
+          "User Authorization failed : Authorization header not available"
+        );
       }
       if (!auth_token.split(" ")[1]) {
         throw new Error("User Authorization failed : Token not available");
@@ -258,7 +276,14 @@ export class User {
 
       //creating event
       const msg = JSON.stringify(
-        EventObj.createEventObj("transactional","User Logged out from the account",false,"success",user_id,req.headers["devicetoken"])
+        EventObj.createEventObj(
+          "transactional",
+          "User Logged out from the account",
+          false,
+          "success",
+          user_id,
+          req.headers["devicetoken"]
+        )
       );
 
       //publishing to amqp server
@@ -321,20 +346,39 @@ export class User {
             }
           );
 
-          //creating event
-          const msg = JSON.stringify(
-            EventObj.createEventObj("transactional","Forget Password Token Sent successfully",false,"success",res_user[0]._id,req.headers["devicetoken"])
-          );
+          if (forget_token) {
+            let info = await Nodemailer.sendMail(
+              token_obj.email,
+              "Reset Password Email",
+              "forgot-password",
+              { userName: `${token_obj.first_name} ${token_obj.last_name}`, token: forget_token }
+            );
+            if (info.success) {
+              //creating event
+              const msg = JSON.stringify(
+                EventObj.createEventObj(
+                  "transactional",
+                  "Forget Password Token Sent successfully",
+                  false,
+                  "success",
+                  res_user[0]._id,
+                  req.headers["devicetoken"]
+                )
+              );
 
-          //publishing to amqp server
-          AMQP.publishMsg("noti-queue", msg);
+              //publishing to amqp server
+              AMQP.publishMsg("noti-queue", msg);
 
-          res.status(200).json({
-            message: "Token Send successfully",
-            data : {
-              token: forget_token,
+              res.status(200).json({
+                message: info.message,
+                data: {
+                  token: forget_token,
+                },
+              });
+            } else {
+              throw new Error(info.message);
             }
-          });
+          }
         } else {
           throw new ReferenceError("User with given email-id not exists");
         }
@@ -454,18 +498,25 @@ export class User {
             );
 
             //creating event
-          const msg = JSON.stringify(
-            EventObj.createEventObj("transactional","User passowrd has been changed",false,"success",res_user[0]._id,req.headers["devicetoken"])
-          );
+            const msg = JSON.stringify(
+              EventObj.createEventObj(
+                "transactional",
+                "User passowrd has been changed",
+                false,
+                "success",
+                res_user[0]._id,
+                req.headers["devicetoken"]
+              )
+            );
 
-          //publishing to amqp server
-          AMQP.publishMsg("noti-queue", msg);
+            //publishing to amqp server
+            AMQP.publishMsg("noti-queue", msg);
 
             res.status(200).json({
               message: "Password changed successfully",
-              data : {
+              data: {
                 token: updated_token,
-              }
+              },
             });
           } else {
             throw new ReferenceError(
@@ -475,11 +526,6 @@ export class User {
         } else {
           throw new ReferenceError("User not exists : check the token again");
         }
-
-        res.status(200).json({
-          message: "Email send successfully",
-          error: res_user,
-        });
       } else {
         throw new Error("Database server is not connected properly");
       }
@@ -510,8 +556,10 @@ export class User {
   static async isLoggedIn(req, res, next) {
     try {
       const auth_token = req.headers["authorization"];
-      if(!auth_token){
-        throw new Error("User Authorization failed : Authorization header not available");
+      if (!auth_token) {
+        throw new Error(
+          "User Authorization failed : Authorization header not available"
+        );
       }
       if (!auth_token.split(" ")[1]) {
         throw new Error("User Authorization failed : Token not available");
@@ -541,7 +589,7 @@ export class User {
         req.body.userid = res_user[0]._id;
 
         // only for formdata objects i am again initializes this becouse multer clears req.body data
-        req.user = {id : res_user[0]._id};
+        req.user = { id: res_user[0]._id };
 
         next();
       } else {
