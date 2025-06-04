@@ -3,14 +3,26 @@ import { Database } from "../lib/connect.js";
 import { College_Model } from "../models/colleges.js";
 
 export class College {
-  static async getAllColleges(_req, res) {
+  static async getAllColleges(req, res) {
     try {
       if (await Database.isConnected()) {
-        const college_list = await College_Model.find();
+        const {q} = req.query;
+
+        if(!q){
+          throw new Error("Query Parameter is required");
+        }
+
+        const college_list = await College_Model.find({
+          college_name: { $regex: q, $options: "i" }  
+        });
+      
 
         res.status(200).json({
           message: "College fetched successfully",
-          data: college_list,
+          data: {
+            count : college_list?.length,
+            colleges : college_list
+          },
         });
       } else {
         throw new Error("Database server is not connected properly");
