@@ -67,7 +67,6 @@ export class Pg {
       }
 
       const {
-        user_id,
         pg_name,
         street_name,
         house_no,
@@ -79,19 +78,18 @@ export class Pg {
         food_available,
         rules,
         pg_image_url,
-        userid,
       } = req.body;
 
+      const user_id = req.user.id;
+
       //check if the userid successfully fetched from the middleware
-      if (!userid) {
+      if (!user_id) {
         throw new TypeError(
           "Authorization failed : try to call update api without token"
         );
       }
 
       // Data Type Validations
-      if (typeof user_id !== "string")
-        throw new TypeError("User ID must be of type string");
       if (typeof pg_name !== "string")
         throw new TypeError("PG name must be of type string");
       if (typeof street_name !== "string")
