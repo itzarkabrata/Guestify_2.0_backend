@@ -94,20 +94,20 @@ export class Pg {
         throw new TypeError("PG name must be of type string");
       if (typeof street_name !== "string")
         throw new TypeError("Street name must be of type string");
-      if (typeof house_no !== "number")
+      if (typeof Number(house_no) !== "number")
         throw new TypeError("House number must be of type number");
       if (typeof state !== "string")
         throw new TypeError("State must be of type string");
-      if (typeof rent !== "number")
+      if (typeof Number(rent) !== "number")
         throw new TypeError("Rent must be of type number");
-      if (typeof pincode !== "number")
+      if (typeof Number(pincode) !== "number")
         throw new TypeError("Pincode must be of type number");
       if (typeof address !== "string")
         throw new TypeError("Address must be of type string");
-      if (typeof wifi_available !== "boolean")
-        throw new TypeError("Wifi availability must be a boolean");
-      if (typeof food_available !== "boolean")
-        throw new TypeError("Food availability must be a boolean");
+      if (wifi_available !== "yes" && wifi_available !== "no")
+        throw new TypeError("Wifi availability must be a yes or no");
+      if (food_available !== "yes" && food_available !== "no")
+        throw new TypeError("Food availability must be a yes or no");
       if (typeof rules !== "string")
         throw new TypeError("Rules must be of type string");
       if (typeof pg_image_url !== "string")
