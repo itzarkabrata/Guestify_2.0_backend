@@ -156,7 +156,7 @@ export class Pg {
       }
 
       //computing the address
-      const address = `${house_no}, ${street_name}, ${district}, ${pincode}`;
+      const address = `${house_no}, ${street_name}, ${district?.replace(district[0],district[0].toUpperCase())}, ${pincode}`;
 
       // getting latitude and longitude of the address location
       const addObject = await Location.getLatLong("IN",district,pincode,`${house_no} ${street_name}`);
