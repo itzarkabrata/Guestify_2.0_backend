@@ -5,13 +5,35 @@ import { Room } from "./room_class.js";
 import { Location } from "../lib/externalAPI/location.js";
 
 export class Pg {
-  static async getAllPg(_req, res) {
+  static async getAllPg(req, res) {
     try {
       if (!(await Database.isConnected())) {
         throw new Error("Database server is not connected properly");
       }
 
-      const pgList = await PgInfo_Model.find();
+      // Getting query paramters 
+      const { kmradi, coordinates } = req.query;
+
+      // Both query parameter needed
+      if (!kmradi && !coordinates) {
+        throw new Error(
+          "Missing Query Paramteres : either kmradius or coordinates"
+        );
+      }
+
+      // Compute km to radian for geo searching
+      const radiusInRadians = Number(kmradi) / 6378.1;
+      // Compute the string co-ordinates to array of numeric co-ordinates 
+      const coordinatesArray = coordinates?.split(",").map(Number);
+
+      // Finding the pgs based on a certain radius 
+      const pgList = await PgInfo_Model.find({
+        location: {
+          $geoWithin: {
+            $centerSphere: [coordinatesArray, radiusInRadians],
+          },
+        },
+      });
 
       const final_response = [];
 
@@ -19,9 +41,9 @@ export class Pg {
         const rooms = await Room.GetRooms(pg?._id);
 
         const res_data = {
-          pginfo : pg,
-          rooms : rooms
-        }
+          pginfo: pg,
+          rooms: rooms,
+        };
 
         final_response?.push(res_data);
       }
@@ -58,9 +80,9 @@ export class Pg {
       const rooms = await Room.GetRooms(pg?._id);
 
       const res_data = {
-        pginfo : pg,
-        rooms : rooms
-      }
+        pginfo: pg,
+        rooms: rooms,
+      };
 
       res.status(200).json({
         message: "PG fetched successfully",
@@ -77,8 +99,8 @@ export class Pg {
   }
 
   static async addPg(req, res) {
-    const session = await mongoose.startSession(); 
-    session.startTransaction(); 
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
     try {
       if (!(await Database.isConnected())) {
@@ -156,15 +178,23 @@ export class Pg {
       }
 
       //computing the address
-      const address = `${house_no}, ${street_name}, ${district?.replace(district[0],district[0].toUpperCase())}, ${pincode}`;
+      const address = `${house_no}, ${street_name}, ${district?.replace(
+        district[0],
+        district[0].toUpperCase()
+      )}, ${pincode}`;
 
       // getting latitude and longitude of the address location
-      const addObject = await Location.getLatLong("IN",district,pincode,`${house_no} ${street_name}`);
+      const addObject = await Location.getLatLong(
+        "IN",
+        district,
+        pincode,
+        `${house_no} ${street_name}`
+      );
 
       const location = {
         type: addObject?.point?.type,
-        coordinates: [...addObject?.point?.coordinates].reverse()
-      }
+        coordinates: [...addObject?.point?.coordinates].reverse(),
+      };
       // console.log(location);
 
       const newPg = new PgInfo_Model({
@@ -180,19 +210,19 @@ export class Pg {
         food_available,
         rules,
         pg_image_url,
-        location:location
+        location: location,
       });
 
       const new_pg = await newPg.save({ session });
-      
+
       for (const room of array_of_rooms) {
         await Room.CreateRoom({
           ...room,
           pg_id: new_pg._id,
-        })
+        });
       }
 
-      await session.commitTransaction(); 
+      await session.commitTransaction();
       session.endSession();
 
       res.status(200).json({
