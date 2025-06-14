@@ -4,13 +4,19 @@ import mongoose, { Schema } from "mongoose";
 const pgInfoSchema = new Schema({
   user_id: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User', // Assuming you have a User model
+    ref: 'User',
     required: [true, 'User ID is required'],
   },
   pg_name: {
     type: String,
     required: [true, 'PG name is required'],
     minlength: [3, 'PG name must be at least 3 characters long'],
+    trim: true,
+  },
+  district: {
+    type: String,
+    required: [true, 'District name is required'],
+    minlength: [3, 'District name must be at least 3 characters long'],
     trim: true,
   },
   street_name: {
@@ -30,16 +36,11 @@ const pgInfoSchema = new Schema({
     minlength: [2, 'State must be at least 2 characters long'],
     trim: true,
   },
-  rent: {
-    type: Number,
-    required: [true, 'Rent is required'],
-    min: [1000, 'Rent must be at least 1000'],
-  },
   pincode: {
     type: Number,
     required: [true, 'Pincode is required'],
     validate: {
-      validator: (value) => /^\d{6}$/.test(value.toString()), // pincode will be of exactly 6 digits and only numbers
+      validator: (value) => /^\d{6}$/.test(value.toString()),
       message: 'Pincode must be exactly 6 digits',
     },
   },
@@ -66,6 +67,21 @@ const pgInfoSchema = new Schema({
     type: String,
     required: [true, 'PG image URL is required'],
   },
+  location: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      required: true,
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      required: true
+    }
+  }
 }, { timestamps: true });
+
+// Create 2dsphere index for location queries
+pgInfoSchema.index({ location: '2dsphere' });
 
 export const PgInfo_Model = mongoose.model('PgInfo', pgInfoSchema);
