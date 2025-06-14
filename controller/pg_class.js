@@ -159,7 +159,13 @@ export class Pg {
       const address = `${house_no}, ${street_name}, ${district}, ${pincode}`;
 
       // getting latitude and longitude of the address location
-      const location = await Location.getLatLong("IN",district,pincode,`${house_no} ${street_name}`);
+      const addObject = await Location.getLatLong("IN",district,pincode,`${house_no} ${street_name}`);
+
+      const location = {
+        type: addObject?.point?.type,
+        coordinates: [...addObject?.point?.coordinates].reverse()
+      }
+      // console.log(location);
 
       const newPg = new PgInfo_Model({
         user_id,
@@ -174,7 +180,7 @@ export class Pg {
         food_available,
         rules,
         pg_image_url,
-        location:location?.point
+        location:location
       });
 
       const new_pg = await newPg.save({ session });
