@@ -51,12 +51,20 @@ const pgInfoSchema = new Schema({
     trim: true,
   },
   wifi_available: {
-    type: Boolean,
-    default: false,
+    type: String,
+    enum: {
+      values: ["yes", "no"],
+      message: "WIFI availability must be either 'yes' or 'no'",
+    },
+    required: [true, "WIFI availability is required"],
   },
   food_available: {
-    type: Boolean,
-    default: false,
+    type: String,
+    enum: {
+      values: ["yes", "no"],
+      message: "Food availability must be either 'yes' or 'no'",
+    },
+    required: [true, "Food availability is required"],
   },
   rules: {
     type: String,
