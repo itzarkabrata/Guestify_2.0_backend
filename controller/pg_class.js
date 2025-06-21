@@ -40,8 +40,10 @@ export class Pg {
       for (const pg of pgList) {
         const rooms = await Room.GetRooms(pg?._id);
 
-        const res_data = {
-          pginfo: pg,
+        const minRent = await Room.GetMinimumRoomRent(pg?._id);
+
+        let res_data = {
+          pginfo: {...pg._doc,minRent:minRent},
           rooms: rooms,
         };
 
@@ -124,6 +126,7 @@ export class Pg {
         food_available,
         rules,
         pg_image_url,
+        pg_type,
         rooms,
       } = req.body;
 
@@ -163,6 +166,8 @@ export class Pg {
         throw new TypeError("Rules must be string");
       if (typeof pg_image_url !== "string")
         throw new TypeError("PG image URL must be string");
+      if (typeof pg_type !== "string")
+        throw new TypeError("PG Type must be string");
       if (!/^\d{6}$/.test(pincode.toString()))
         throw new EvalError("Pincode must be 6 digits");
 
@@ -210,6 +215,7 @@ export class Pg {
         food_available,
         rules,
         pg_image_url,
+        pg_type,
         location: location,
       });
 

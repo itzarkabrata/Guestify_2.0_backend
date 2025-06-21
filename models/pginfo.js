@@ -75,6 +75,14 @@ const pgInfoSchema = new Schema({
     type: String,
     required: [true, 'PG image URL is required'],
   },
+  pg_type: {
+    type: String,
+    enum: {
+      values: ["boys", "girls", "both"],
+      message: "Food availability must be either 'yes' or 'no'",
+    },
+    required: [true, "Food availability is required"],
+  },
   location: {
     type: {
       type: String,

@@ -54,7 +54,21 @@ export class Room {
     await new_room.save();
   }
 
-  static async GetRooms(pg_id){
-    return RoomInfo_Model.find({pg_id:pg_id});
+  static async GetRooms(pg_id) {
+    return RoomInfo_Model.find({ pg_id: pg_id });
+  }
+
+  static async GetMinimumRoomRent(pg_id) {
+    const result = await RoomInfo_Model.aggregate([
+      { $match: { pg_id: pg_id } },
+      {
+        $group: {
+          _id: null,
+          minRent: { $min: "$room_rent" },
+        },
+      },
+    ]);
+
+    return result[0]?.minRent;
   }
 }
