@@ -16,6 +16,6 @@ export const io = new Server(server,{
       "http://localhost:3000",
       "https://guestify-2-0.vercel.app",
     ],
-    methods: "GET,POST,PUT,DELETE",
+    methods: "GET,POST,PUT,DELETE,PATCH"
   }
 });
