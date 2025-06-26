@@ -69,7 +69,7 @@ export class Notification {
         } else {
           const res_noti = await Notification_Model.find({
             device_token: device_token,
-          });
+          }).sort({"createdAt":-1});
 
           res.status(200).json({
             message: "Notifications fetched successfully",
@@ -98,20 +98,20 @@ export class Notification {
         data: res_noti,
       });
     } catch (error) {
-        console.log(error.message);
-        res.status(400).json({
-            message: "Notifications not fetched successfully",
-            error: error.message,
-        });
+      console.log(error.message);
+      res.status(400).json({
+        message: "Notifications not fetched successfully",
+        error: error.message,
+      });
     }
   }
 
-  static async makeNotiRead(req,res){
+  static async makeNotiRead(req, res) {
     try {
       if (!(await Database.isConnected())) {
         throw new Error("Database server is not connected properly");
       }
-      const {id} = req.params;
+      const { id } = req.params;
 
       if (!mongoose.Types.ObjectId.isValid(id)) {
         throw new TypeError(
@@ -119,21 +119,114 @@ export class Notification {
         );
       }
 
-      const res_noti = await Notification_Model.updateOne({_id:id},{$set : {isRead : true}})
+      const res_noti = await Notification_Model.updateOne({ _id: id }, { $set: { isRead: true } })
 
-      if(res_noti.acknowledged){
+      if (res_noti.acknowledged) {
         res.status(200).json({
-          message : "Notification Updated Successfully",
-          data : res_noti
+          message: "This Notification has been successfully read",
+          data: res_noti
         })
+      } else {
+        res.status(404).json({
+          message: "Notification not found or already updated",
+          data: res_noti,
+        });
       }
 
     } catch (error) {
       console.log(error.message);
-        res.status(400).json({
-            message: "Notifications not updated successfully",
-            error: error.message,
+      res.status(400).json({
+        message: "Notifications not updated successfully",
+        error: error.message,
+      });
+    }
+  }
+
+  static async makeAllNotiRead(_req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const res_all_noti = await Notification_Model.updateMany({}, { $set: { isRead: true } })
+      if (res_all_noti.acknowledged) {
+        res.status(200).json({
+          message: "All notifications have been successfully read",
+          data: res_all_noti
+        })
+      }
+
+    } catch (error) {
+      console.log(error.message)
+      res.status(400).json({
+        message: "An error occured at the notification end",
+        error: error.message
+      })
+    }
+  }
+
+  static async deleteNoti(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { id } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new TypeError(
+          "Notification Authorization failed: Invalid Notification ID format in params"
+        );
+      }
+
+      const res_noti = await Notification_Model.deleteOne({ _id: id });
+
+      if (res_noti.acknowledged) {
+        res.status(200).json({
+          message: "Notification has been successfully deleted",
+          data: res_noti,
         });
+      } else {
+        res.status(404).json({
+          message: "Notification not found or already deleted",
+          data: res_noti,
+        });
+      }
+    } catch (error) {
+      console.log(error.message);
+      res.status(400).json({
+        message: "Notification deletion failed",
+        error: error.message,
+      });
+    }
+
+  }
+
+  static async deleteAllNoti(_req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const res_all_noti = await Notification_Model.deleteMany({});
+
+      if (res_all_noti.acknowledged) {
+        res.status(200).json({
+          message: "All Notifications are successfully deleted",
+          data: res_all_noti,
+        });
+      } else {
+        res.status(404).json({
+          message: "Notifications not found or already deleted",
+          data: res_all_noti,
+        });
+      }
+    } catch (error) {
+      console.log(error.message);
+      res.status(400).json({
+        message: "Notification deletion failed",
+        error: error.message,
+      });
     }
   }
 }
