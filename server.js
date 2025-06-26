@@ -32,7 +32,7 @@ app.use(
       "http://localhost:3000",
       "https://guestify-2-0.vercel.app",
     ],
-    methods: "GET,POST,PUT,DELETE",
+    methods: "GET,POST,PUT,DELETE,PATCH",
     credentials: true,
   })
 );
