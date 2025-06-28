@@ -18,9 +18,9 @@ export class Room {
       throw new Error("Req body is required");
     }
 
-    // console.log("roomObj", req?.body);
+    console.log("roomObj", req?.body);
 
-    // console.log("files",req?.files)
+    console.log("files",req?.files)
 
     // Find the uploaded file for this room
     const roomfile = req.files.find(
