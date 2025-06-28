@@ -245,7 +245,7 @@ export class Pg {
       const new_pg = await newPg.save({ session });
 
       //========== Parsing Room =========
-      const array_of_rooms = Pg?.parseRoomArray(req);
+      const array_of_rooms = await Pg?.parseRoomArray(req);
 
 
       for (const room of array_of_rooms) {
