@@ -5,7 +5,7 @@ import { Room } from "./room_class.js";
 import { Location } from "../lib/externalAPI/location.js";
 
 export class Pg {
-  static async parseRoomArray(req){
+  static async parseRoomArray(req) {
     const rooms = [];
 
     console.log(req?.body);
@@ -24,10 +24,14 @@ export class Pg {
       };
 
       // Find the uploaded file for this room
-      const roomfile = req.files.find(f => f.fieldname === `rooms[${i}][room_image_url]`);
+      const roomfile = req.files.find(
+        (f) => f.fieldname === `rooms[${i}][room_image_url]`
+      );
       if (roomfile) {
         // Save file to cloud / disk and get URL
-        room.room_image_url = `${req.protocol}://${req.get("host")}/${roomfile?.path}`
+        room.room_image_url = `${req.protocol}://${req.get("host")}/${
+          roomfile?.path
+        }`;
       }
 
       rooms.push(room);
@@ -42,7 +46,7 @@ export class Pg {
         throw new Error("Database server is not connected properly");
       }
 
-      // Getting query paramters 
+      // Getting query paramters
       const { kmradi, coordinates } = req.query;
 
       // Both query parameter needed
@@ -54,10 +58,10 @@ export class Pg {
 
       // Compute km to radian for geo searching
       const radiusInRadians = Number(kmradi) / 6378.1;
-      // Compute the string co-ordinates to array of numeric co-ordinates 
+      // Compute the string co-ordinates to array of numeric co-ordinates
       const coordinatesArray = coordinates?.split(",").map(Number);
 
-      // Finding the pgs based on a certain radius 
+      // Finding the pgs based on a certain radius
       const pgList = await PgInfo_Model.find({
         location: {
           $geoWithin: {
@@ -74,7 +78,7 @@ export class Pg {
         const minRent = await Room.GetMinimumRoomRent(pg?._id);
 
         let res_data = {
-          pginfo: {...pg._doc,minRent:minRent},
+          pginfo: { ...pg._doc, minRent: minRent },
           rooms: rooms,
         };
 
@@ -146,11 +150,13 @@ export class Pg {
       //   }`;
       // }
 
-      console.log("Initial Body" , req.body);
+      // console.log("Initial Body" , req.body);
 
-      const pgFile = req.files.find(f => f.fieldname === "pg_image_url");
+      const pgFile = req.files.find((f) => f.fieldname === "pg_image_url");
       if (pgFile) {
-        req.body.pg_image_url = `${req.protocol}://${req.get("host")}/${pgFile?.path}`;
+        req.body.pg_image_url = `${req.protocol}://${req.get("host")}/${
+          pgFile?.path
+        }`;
       }
 
       const {
@@ -252,16 +258,17 @@ export class Pg {
       // const array_of_rooms = await Pg?.parseRoomArray(req);
       const array_of_rooms = req?.body?.rooms;
 
-      if(array_of_rooms && array_of_rooms?.length===0){
+      if (array_of_rooms && array_of_rooms?.length === 0) {
         throw new Error("Rooms cannot be empty");
       }
 
-      for (const room of array_of_rooms) {
+      for (let index = 0; index < array_of_rooms?.length; index++) {
+        const room = array_of_rooms[index];
         const roomInfo = {
           ...room,
           pg_id: new_pg._id,
         };
-        await Room.CreateRoom(roomInfo,req);
+        await Room.CreateRoom(roomInfo, req, index);
       }
 
       await session.commitTransaction();

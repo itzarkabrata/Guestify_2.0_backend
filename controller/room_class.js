@@ -2,7 +2,7 @@ import { RoomInfo_Model } from "../models/roominfo.js";
 import mongoose from "mongoose";
 
 export class Room {
-  static async CreateRoom(room, req) {
+  static async CreateRoom(room, req, index) {
     const {
       room_type,
       room_image_url,
@@ -22,12 +22,16 @@ export class Room {
 
     console.log("files",req?.files)
 
-    // const roomFile = req.files.find((f) => f.fieldname === "room_image_url");
-    // if (roomFile) {
-    //   req.body.pg_image_url = `${req.protocol}://${req.get("host")}/${
-    //     pgFile?.path
-    //   }`;
-    // }
+    // Find the uploaded file for this room
+    const roomfile = req.files.find(
+      (f) => f.fieldname === `rooms[${index}][room_image_url]`
+    );
+    if (roomfile) {
+      // Save file to cloud / disk and get URL
+      room.room_image_url = `${req.protocol}://${req.get("host")}/${
+        roomfile?.path
+      }`;
+    }
 
     if (typeof room_type !== "string")
       throw new TypeError("Room type must be of type string");
