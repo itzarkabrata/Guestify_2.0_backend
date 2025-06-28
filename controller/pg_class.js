@@ -5,6 +5,35 @@ import { Room } from "./room_class.js";
 import { Location } from "../lib/externalAPI/location.js";
 
 export class Pg {
+  static async parseRoomArray(req){
+    const rooms = [];
+
+    let i = 0;
+    while (true) {
+      if (!req.body[`rooms[${i}][room_type]`]) break; // stop when no more
+
+      const room = {
+        room_type: req.body[`rooms[${i}][room_type]`],
+        room_rent: req.body[`rooms[${i}][room_rent]`],
+        ac_available: req.body[`rooms[${i}][ac_available]`],
+        deposit_duration: req.body[`rooms[${i}][deposit_duration]`],
+        attached_bathroom: req.body[`rooms[${i}][attached_bathroom]`],
+        room_image_url: null, // Will set below
+      };
+
+      // Find the uploaded file for this room
+      const roomfile = req.files.find(f => f.fieldname === `rooms[${i}][room_image_url]`);
+      if (roomfile) {
+        // Save file to cloud / disk and get URL
+        room.room_image_url = `${req.protocol}://${req.get("host")}/${roomfile?.path}`
+      }
+
+      rooms.push(room);
+      i++;
+    }
+
+    return rooms;
+  }
   static async getAllPg(req, res) {
     try {
       if (!(await Database.isConnected())) {
@@ -109,10 +138,15 @@ export class Pg {
         throw new Error("Database server is not connected properly");
       }
 
-      if (req.file) {
-        req.body.pg_image_url = `${req.protocol}://${req.get("host")}/${
-          req.file.path
-        }`;
+      // if (req.file) {
+      //   req.body.pg_image_url = `${req.protocol}://${req.get("host")}/${
+      //     req.file.path
+      //   }`;
+      // }
+
+      const pgFile = req.files.find(f => f.fieldname === "pg_image_url");
+      if (pgFile) {
+        req.body.pg_image_url = `${req.protocol}://${req.get("host")}/${pgFile?.path}`;
       }
 
       const {
@@ -127,22 +161,11 @@ export class Pg {
         rules,
         pg_image_url,
         pg_type,
-        rooms,
       } = req.body;
 
       const user_id = req.user.id;
       if (!user_id) {
         throw new TypeError("Authorization failed: token missing");
-      }
-
-      if (!rooms) {
-        throw new TypeError("Rooms is a required field");
-      }
-
-      const array_of_rooms = JSON.parse(rooms);
-
-      if (!Array.isArray(array_of_rooms) || array_of_rooms.length === 0) {
-        throw new TypeError("Rooms must be a non-empty array");
       }
 
       // Data Validations (same as you already wrote)
@@ -220,6 +243,10 @@ export class Pg {
       });
 
       const new_pg = await newPg.save({ session });
+
+      //========== Parsing Room =========
+      const array_of_rooms = Pg?.parseRoomArray(req);
+
 
       for (const room of array_of_rooms) {
         await Room.CreateRoom({

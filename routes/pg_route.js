@@ -13,8 +13,8 @@ const upload = multer({ storage: storage, fileFilter: fileFilter });
 
 router.get("/getAllPg",Pg.getAllPg);
 router.get("/getPg/:id",Pg.getPg);
-router.post("/addpg",User.isLoggedIn, upload.single("pg_image_url"), Pg.addPg);
+router.post("/addpg",User.isLoggedIn, upload.any(), Pg.addPg);
 router.delete("/deletePg/:id",User.isLoggedIn, Pg.deletePg);
-router.put("/updatePg/:id",User.isLoggedIn, upload.single("pg_image_url"), Pg.updatePg);
+router.put("/updatePg/:id",User.isLoggedIn, upload.any(), Pg.updatePg);
 
 export const pg_router = router;
