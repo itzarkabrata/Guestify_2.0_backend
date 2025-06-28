@@ -5,10 +5,10 @@ import { Room } from "./room_class.js";
 import { Location } from "../lib/externalAPI/location.js";
 
 export class Pg {
-  static async parseRoomArray(body){
+  static async parseRoomArray(req){
     const rooms = [];
 
-    console.log(body);
+    console.log(req?.body);
 
     let i = 0;
     while (true) {
@@ -146,6 +146,8 @@ export class Pg {
       //   }`;
       // }
 
+      console.log("Initial Body" , req.body);
+
       const pgFile = req.files.find(f => f.fieldname === "pg_image_url");
       if (pgFile) {
         req.body.pg_image_url = `${req.protocol}://${req.get("host")}/${pgFile?.path}`;
@@ -247,18 +249,19 @@ export class Pg {
       const new_pg = await newPg.save({ session });
 
       //========== Parsing Room =========
-      const array_of_rooms = await Pg?.parseRoomArray(req?.body);
+      // const array_of_rooms = await Pg?.parseRoomArray(req);
+      const array_of_rooms = req?.body?.rooms;
 
-      if(array_of_rooms?.length===0){
+      if(array_of_rooms && array_of_rooms?.length===0){
         throw new Error("Rooms cannot be empty");
       }
 
-
       for (const room of array_of_rooms) {
-        await Room.CreateRoom({
+        const roomInfo = {
           ...room,
           pg_id: new_pg._id,
-        });
+        };
+        await Room.CreateRoom(roomInfo,req);
       }
 
       await session.commitTransaction();
