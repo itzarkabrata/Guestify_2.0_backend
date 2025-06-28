@@ -208,6 +208,13 @@ export class Pg {
         throw new TypeError("Invalid PG ID format");
       }
 
+      // ======= ROOMS =======
+      const array_of_rooms = req?.body?.rooms;
+
+      if (array_of_rooms && array_of_rooms?.length === 0) {
+        throw new Error("Rooms cannot be empty");
+      }
+
       const existingPg = await PgInfo_Model.findOne({ user_id, pg_name });
       if (existingPg) {
         throw new ReferenceError(
@@ -255,12 +262,7 @@ export class Pg {
       const new_pg = await newPg.save({ session });
 
       //========== Parsing Room =========
-      // const array_of_rooms = await Pg?.parseRoomArray(req);
-      const array_of_rooms = req?.body?.rooms;
 
-      if (array_of_rooms && array_of_rooms?.length === 0) {
-        throw new Error("Rooms cannot be empty");
-      }
 
       for (let index = 0; index < array_of_rooms?.length; index++) {
         const room = array_of_rooms[index];
