@@ -5,12 +5,14 @@ import { Room } from "./room_class.js";
 import { Location } from "../lib/externalAPI/location.js";
 
 export class Pg {
-  static async parseRoomArray(req){
+  static async parseRoomArray(body){
     const rooms = [];
+
+    console.log(body);
 
     let i = 0;
     while (true) {
-      if (!req.body[`rooms[${i}][room_type]`]) break; // stop when no more
+      if (!body[`rooms[${i}][room_type]`]) break; // stop when no more
 
       const room = {
         room_type: req.body[`rooms[${i}][room_type]`],
@@ -245,7 +247,11 @@ export class Pg {
       const new_pg = await newPg.save({ session });
 
       //========== Parsing Room =========
-      const array_of_rooms = await Pg?.parseRoomArray(req);
+      const array_of_rooms = await Pg?.parseRoomArray(req?.body);
+
+      if(array_of_rooms?.length===0){
+        throw new Error("Rooms cannot be empty");
+      }
 
 
       for (const room of array_of_rooms) {
