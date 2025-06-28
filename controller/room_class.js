@@ -5,7 +5,6 @@ export class Room {
   static async CreateRoom(room, req, index) {
     const {
       room_type,
-      room_image_url,
       room_rent,
       ac_available,
       attached_bathroom,
@@ -13,6 +12,8 @@ export class Room {
       pg_id,
     } = room;
     // validate each room entry
+
+    let roomImage = null;
 
     if (!req) {
       throw new Error("Req body is required");
@@ -28,7 +29,7 @@ export class Room {
     );
     if (roomfile) {
       // Save file to cloud / disk and get URL
-      room.room_image_url = `${req.protocol}://${req.get("host")}/${
+      roomImage = `${req.protocol}://${req.get("host")}/${
         roomfile?.path
       }`;
     }
@@ -38,7 +39,7 @@ export class Room {
     if (!["single", "double", "triple"].includes(room_type))
       throw new TypeError("Room type must be 'single', 'double', or 'triple'");
 
-    if (typeof room_image_url !== "string")
+    if (typeof roomImage !== "string")
       throw new TypeError("Room image URL must be of type string");
 
     if (typeof Number(room_rent) !== "number" || isNaN(Number(room_rent)))
@@ -68,7 +69,7 @@ export class Room {
     if (!mongoose.Types.ObjectId.isValid(pg_id))
       throw new TypeError("PG ID must be a valid ObjectId format");
 
-    const new_room = new RoomInfo_Model(room);
+    const new_room = new RoomInfo_Model({...room,room_image_url: roomImage});
 
     await new_room.save();
   }
