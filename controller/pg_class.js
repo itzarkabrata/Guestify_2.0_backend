@@ -198,9 +198,7 @@ export class Pg {
 
       const pgFile = req.files.find((f) => f.fieldname === "pg_image_url");
       if (pgFile) {
-        req.body.pg_image_url = `${req.protocol}://${req.get("host")}/${
-          pgFile?.path
-        }`;
+        req.body.pg_image_url = pgFile?.path;
       }
 
       const {

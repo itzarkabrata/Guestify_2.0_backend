@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { Pg } from "../controller/pg_class.js";
 import { User } from "../controller/user_class.js";
-import { fileFilter, storage } from "../lib/assetstorage_config.js";
+// import { fileFilter, storage } from "../lib/assetstorage_config.js";
+import { storage } from "../lib/assetstorage_config.js";
 import multer from "multer";
 
 const router = Router();
@@ -9,7 +10,13 @@ const router = Router();
 // Check Authorization before any api call
 // router.use(User.isLoggedIn);
 
-const upload = multer({ storage: storage, fileFilter: fileFilter });
+
+//  multer implementation for server storage
+// const upload = multer({ storage: storage, fileFilter: fileFilter });
+
+// Cloudinary implementation
+const upload = multer({ storage: storage });
+
 
 router.get("/getAllPg",Pg.getAllPg);
 router.get("/getPg/:id",Pg.getPg);
