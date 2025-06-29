@@ -2,11 +2,18 @@ import { Router } from "express";
 import { UserProfile } from "../controller/user_profile_class.js";
 import { User } from "../controller/user_class.js";
 import multer from "multer";
-import { fileFilter, storage } from "../lib/assetstorage_config.js";
+// import { fileFilter, storage } from "../lib/assetstorage_config.js";
+import { storage } from "../lib/assetstorage_config.js";
 
 const router = Router();
 
-const upload = multer({ storage: storage, fileFilter: fileFilter });
+// Local server implementation 
+// const upload = multer({ storage: storage, fileFilter: fileFilter });
+
+
+// Cloudinary implementation
+const upload = multer({ storage: storage });
+
 
 router.put(
   "/updateProfile",

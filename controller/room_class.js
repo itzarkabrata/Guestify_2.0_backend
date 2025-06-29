@@ -29,9 +29,7 @@ export class Room {
     );
     if (roomfile) {
       // Save file to cloud / disk and get URL
-      roomImage = `${req.protocol}://${req.get("host")}/${
-        roomfile?.path
-      }`;
+      roomImage = roomfile?.path;
     }
 
     if (typeof room_type !== "string")
