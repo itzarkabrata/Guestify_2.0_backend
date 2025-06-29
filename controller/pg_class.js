@@ -135,6 +135,50 @@ export class Pg {
     }
   }
 
+  static async getPG_ByUser(req,res){
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { userid } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(userid)) {
+        throw new TypeError("Invalid User ID format");
+      }
+
+      const pgList = await PgInfo_Model.find({user_id: userid});
+
+      const final_response = [];
+
+      for (const pg of pgList) {
+        const rooms = await Room.GetRooms(pg?._id);
+
+        const minRent = await Room.GetMinimumRoomRent(pg?._id);
+
+        let res_data = {
+          pginfo: { ...pg._doc, minRent: minRent },
+          rooms: rooms,
+        };
+
+        final_response?.push(res_data);
+      }
+
+      res.status(200).json({
+        message: "PG fetched successfully",
+        count: pgList.length,
+        data: final_response,
+      });
+    } catch (error) {
+      console.error(error.message);
+
+      res.status(500).json({
+        message: "Failed to fetch PGs",
+        error: error.message,
+      });
+    }
+  }
+
   static async addPg(req, res) {
     const session = await mongoose.startSession();
     session.startTransaction();
