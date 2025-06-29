@@ -3,6 +3,7 @@ import { Database } from "../lib/connect.js";
 import { PgInfo_Model } from "../models/pginfo.js";
 import { Room } from "./room_class.js";
 import { Location } from "../lib/externalAPI/location.js";
+import { RoomInfo_Model } from "../models/roominfo.js";
 
 export class Pg {
   static async parseRoomArray(req) {
@@ -343,6 +344,8 @@ export class Pg {
   }
 
   static async deletePg(req, res) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
       if (!(await Database.isConnected())) {
         throw new Error("Database server is not connected properly");
@@ -360,11 +363,24 @@ export class Pg {
         throw new ReferenceError("PG not found");
       }
 
+      const deleteRoom = await RoomInfo_Model.deleteMany({pg_id : id});
+
+      if(!(deleteRoom?.acknowledged)){
+        throw new Error("Rooms under the PG not deleted");
+      }
+
+      await session.commitTransaction();
+      session.endSession();
+
       res.status(200).json({
-        message: "PG deleted successfully",
+        message: "PG and Rooms deleted successfully",
       });
     } catch (error) {
       console.error(error.message);
+
+      await session.abortTransaction();
+
+      session.endSession();
 
       const statusCode =
         error instanceof TypeError || error instanceof ReferenceError
