@@ -52,9 +52,7 @@ export class UserProfile {
     try {
       if (await Database.isConnected()) {
         if (req.file) {
-          req.body.image_url = `${req.protocol}://${req.get("host")}/${
-            req.file.path
-          }`;
+          req.body.image_url = req.file.path;
         }
 
         const {
