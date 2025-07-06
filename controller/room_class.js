@@ -19,18 +19,23 @@ export class Room {
       throw new Error("Req body is required");
     }
 
-    console.log("roomObj", req?.body);
+    // console.log("roomObj", req?.body);
 
-    console.log("files",req?.files)
+    // console.log("files",req?.files)
 
     // Find the uploaded file for this room
     const roomfile = req.files.find(
       (f) => f.fieldname === `rooms[${index}][room_image_url]`
     );
+
+    // console.log(roomfile,"Room File");
+
     if (roomfile) {
       // Save file to cloud / disk and get URL
       roomImage = roomfile?.path;
     }
+
+    // console.log(roomImage,"Room Image");
 
     if (typeof room_type !== "string")
       throw new TypeError("Room type must be of type string");

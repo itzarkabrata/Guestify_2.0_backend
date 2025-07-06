@@ -202,6 +202,9 @@ export class Pg {
         req.body.pg_image_url = pgFile?.path;
       }
 
+      // console.log(req.files,"Files Object");
+      // console.log(pgFile,"PG File");
+
       const {
         pg_name,
         district,
@@ -278,6 +281,17 @@ export class Pg {
         pincode,
         `${house_no} ${street_name}`
       );
+
+      // console.log(addObject);
+
+      if (
+        !addObject?.point?.coordinates ||
+        !Array.isArray(addObject.point.coordinates)
+      ) {
+        throw new Error(
+          "Could not get valid coordinates from location service"
+        );
+      }
 
       const location = {
         type: addObject?.point?.type,
