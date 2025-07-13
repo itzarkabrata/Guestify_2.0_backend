@@ -132,6 +132,35 @@ export class Pg {
   }
 
 
+  static async getPg_RoomDetails(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { id } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new TypeError("Invalid PG ID format");
+      }
+
+      const pg_room_details = await Room.GetRooms(id);
+
+      res.status(200).json({
+        message: "PG Room Details fetched successfully",
+        data: pg_room_details,
+      });
+    } catch (error) {
+      console.error(error.message);
+
+      res.status(500).json({
+        message: "Failed to fetch PG Room Details",
+        error: error.message,
+      });
+    }
+  }
+
+
   static async getPg(req, res) {
     try {
       if (!(await Database.isConnected())) {
@@ -455,6 +484,10 @@ export class Pg {
 
       const { id } = req.params;
 
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new TypeError("Invalid PG ID format");
+      }
+
       // extract and delete old image if exists
       const prev_img = await PgInfo_Model.findOne({ _id: id }, { pg_image_url: 1 });
       const imageUrl = prev_img?.pg_image_url;
@@ -520,6 +553,35 @@ export class Pg {
       if (!/^\d{6}$/.test(pincode.toString())) {
         throw new EvalError("Pincode must be exactly 6 digits");
       }
+
+      //computing the address
+      const address = `${house_no}, ${street_name}, ${district?.replace(
+        district[0],
+        district[0].toUpperCase()
+      )}, ${pincode}`;
+
+      // getting latitude and longitude of the address location
+      const addObject = await Location.getLatLong(
+        "IN",
+        district,
+        pincode,
+        `${house_no} ${street_name}`
+      );
+
+      if (
+        !addObject?.point?.coordinates ||
+        !Array.isArray(addObject.point.coordinates)
+      ) {
+        throw new Error(
+          "Could not get valid coordinates from location service"
+        );
+      }
+
+      const location = {
+        type: addObject?.point?.type,
+        coordinates: [...addObject?.point?.coordinates].reverse(),
+      };
+
       const updateData = {
         pg_name,
         district,
@@ -532,11 +594,9 @@ export class Pg {
         rules,
         pg_image_url,
         pg_type,
+        address,
+        location: location
       };
-
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new TypeError("Invalid PG ID format");
-      }
 
       const updatedPg = await PgInfo_Model.findByIdAndUpdate(id, updateData, {
         new: true,
@@ -561,6 +621,68 @@ export class Pg {
 
       res.status(statusCode).json({
         message: "Failed to update PG Basic Details",
+        error: error.message,
+      });
+    }
+  }
+
+  static async update_RoomDetails(req, res) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const user_id = req.user.id;
+      if (!user_id) {
+        throw new TypeError("Authorization failed: token missing");
+      }
+
+      // ======= ROOMS =======
+      const array_of_rooms = req?.body?.rooms;
+
+      if (array_of_rooms && array_of_rooms?.length === 0) {
+        throw new Error("Rooms cannot be empty");
+      }
+
+      //========== Parsing Room =========
+
+      const updatedRooms = [];
+
+      for (let index = 0; index < array_of_rooms?.length; index++) {
+        const room = array_of_rooms[index];
+        const roomInfo = {
+          ...room,
+        };
+        const updatedRoom = await Room.UpdateRoom(roomInfo, req, index);
+        updatedRooms.push(updatedRoom);
+      }
+
+      await session.commitTransaction();
+      session.endSession();
+
+      res.status(200).json({
+        message: "Rooms Updated successfully",
+        data: updatedRooms
+      });
+    } catch (error) {
+      await session.abortTransaction();
+
+      session.endSession();
+
+      console.error(error.message);
+
+      const statusCode =
+        error instanceof TypeError ||
+        error instanceof EvalError ||
+        error instanceof ReferenceError
+          ? 400
+          : 500;
+
+      res.status(statusCode).json({
+        message: "Room Updations failed, transaction rolled back",
         error: error.message,
       });
     }
