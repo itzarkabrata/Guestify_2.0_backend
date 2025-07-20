@@ -15,11 +15,11 @@ export class Review {
         res.status(200).json({
           success: true,
           message: "Reviews fetched successfully",
-          data: reviews.map(({ _id, full_name, feedback, image_url, rating }) => ({
+          data: reviews.map(({ _id, full_name, feedback, review_image_url, rating }) => ({
             _id,
             full_name,
             feedback,
-            image_url,
+            image_url : review_image_url,
             rating
           })),
         });
