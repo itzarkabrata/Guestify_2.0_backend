@@ -10,16 +10,15 @@ export class Review {
         const reviews = await Review_Model.find({ pg_id: pg_id }).sort({
           createdAt: -1,
         });
-        console.log(pg_id);
 
         res.status(200).json({
           success: true,
           message: "Reviews fetched successfully",
-          data: reviews.map(({ _id, full_name, feedback, image_url, rating }) => ({
+          data: reviews.map(({ _id, full_name, feedback, review_image_url, rating }) => ({
             _id,
             full_name,
             feedback,
-            image_url,
+            image_url : review_image_url,
             rating
           })),
         });
