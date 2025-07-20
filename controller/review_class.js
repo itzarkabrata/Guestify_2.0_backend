@@ -10,7 +10,6 @@ export class Review {
         const reviews = await Review_Model.find({ pg_id: pg_id }).sort({
           createdAt: -1,
         });
-        console.log(pg_id);
 
         res.status(200).json({
           success: true,
