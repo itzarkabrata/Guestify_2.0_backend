@@ -43,9 +43,8 @@ export class Review {
       }
 
       const reviewFile = Array.isArray(req.files) && req.files.find((f) => f.fieldname === "image_url");
-      if (reviewFile) {
-        req.body.review_image_url = reviewFile?.path;
-      }
+      
+      req.body.review_image_url = reviewFile ? reviewFile?.path : "";
 
       // console.log(req.files,"Files Object");
       // console.log(pgFile,"PG File");
