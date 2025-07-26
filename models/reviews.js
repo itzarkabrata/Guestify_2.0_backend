@@ -18,9 +18,8 @@ const reviewSchema = new Schema(
       type: String,
       trim: true,
     },
-    image_url: {
+    review_image_url: {
       type: String,
-      required: [true, "Room image URL is required"],
     },
     rating: {
       type: Number,
