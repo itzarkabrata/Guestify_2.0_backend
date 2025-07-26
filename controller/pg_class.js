@@ -336,10 +336,11 @@ export class Pg {
 
       // getting latitude and longitude of the address location
       const addObject = await Location.getLatLong(
-        "IN",
+        "India",
         district,
         pincode,
-        `${house_no} ${street_name}`
+        `${house_no} ${street_name}`,
+        `${state}`
       );
 
       // console.log(addObject);
@@ -633,6 +634,12 @@ export class Pg {
     try {
       if (!(await Database.isConnected())) {
         throw new Error("Database server is not connected properly");
+      }
+
+      const { id } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new TypeError("Invalid PG ID format");
       }
 
       const user_id = req.user.id;

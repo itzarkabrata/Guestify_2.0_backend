@@ -35,5 +35,6 @@ router.delete("/deletePg/:id",User.isLoggedIn, Pg.deletePg);
 
 // == UPDATE ==
 router.put("/updatePg/:id/basic-details",User.isLoggedIn, upload.any(), Pg.updatePg_BasicDetails);
+router.put("/updatePg/:id/room-details",User.isLoggedIn, upload.any(), Pg.update_RoomDetails);
 
 export const pg_router = router;
