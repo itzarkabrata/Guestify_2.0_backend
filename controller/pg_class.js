@@ -4,6 +4,8 @@ import { PgInfo_Model } from "../models/pginfo.js";
 import { Room } from "./room_class.js";
 import { Location } from "../lib/externalAPI/location.js";
 import { RoomInfo_Model } from "../models/roominfo.js";
+import { getPublicIdFromUrl } from "../server-utils/publicURLFetcher.js";
+import cloudinary from "../lib/assetstorage_config.js";
 
 export class Pg {
   static async parseRoomArray(req) {
@@ -100,6 +102,64 @@ export class Pg {
       });
     }
   }
+
+  static async getPg_BasicDetails(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { id } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new TypeError("Invalid PG ID format");
+      }
+
+      const pg_basic_details = await PgInfo_Model.findById(id);
+
+      res.status(200).json({
+        message: "PG Basic Details fetched successfully",
+        data: pg_basic_details,
+      });
+    } catch (error) {
+      console.error(error.message);
+
+      res.status(500).json({
+        message: "Failed to fetch PG Basic Details",
+        error: error.message,
+      });
+    }
+  }
+
+
+  static async getPg_RoomDetails(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { id } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new TypeError("Invalid PG ID format");
+      }
+
+      const pg_room_details = await Room.GetRooms(id);
+
+      res.status(200).json({
+        message: "PG Room Details fetched successfully",
+        data: pg_room_details,
+      });
+    } catch (error) {
+      console.error(error.message);
+
+      res.status(500).json({
+        message: "Failed to fetch PG Room Details",
+        error: error.message,
+      });
+    }
+  }
+
 
   static async getPg(req, res) {
     try {
@@ -276,10 +336,11 @@ export class Pg {
 
       // getting latitude and longitude of the address location
       const addObject = await Location.getLatLong(
-        "IN",
+        "India",
         district,
         pincode,
-        `${house_no} ${street_name}`
+        `${house_no} ${street_name}`,
+        `${state}`
       );
 
       // console.log(addObject);
@@ -371,6 +432,15 @@ export class Pg {
         throw new TypeError("Invalid PG ID format");
       }
 
+      // extract and delete old image if exists
+      const prev_img = await PgInfo_Model.findOne({ _id: id }, { pg_image_url: 1 });
+      const imageUrl = prev_img?.pg_image_url;
+
+      if(imageUrl!==null && imageUrl!==""){
+        const publicId = getPublicIdFromUrl(imageUrl);
+        await cloudinary.uploader.destroy(publicId);
+      }
+
       const deletedPg = await PgInfo_Model.findByIdAndDelete(id);
 
       if (!deletedPg) {
@@ -407,77 +477,127 @@ export class Pg {
       });
     }
   }
-  static async updatePg(req, res) {
+  static async updatePg_BasicDetails(req, res) {
     try {
       if (!(await Database.isConnected())) {
         throw new Error("Database server is not connected properly");
       }
 
       const { id } = req.params;
-      console.log(id);
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new TypeError("Invalid PG ID format");
+      }
+
+      // extract and delete old image if exists
+      const prev_img = await PgInfo_Model.findOne({ _id: id }, { pg_image_url: 1 });
+      const imageUrl = prev_img?.pg_image_url;
+
+      if(imageUrl!==null && imageUrl!==""){
+        const publicId = getPublicIdFromUrl(imageUrl);
+        await cloudinary.uploader.destroy(publicId);
+      }
+
+      // upload new image
+      const pgFile = req.files.find((f) => f.fieldname === "pg_image_url");
+      if (pgFile) {
+        req.body.pg_image_url = pgFile?.path;
+      }
+
+
       const {
-        user_id,
         pg_name,
-        street_name,
+        district,
         house_no,
         state,
-        rent,
         pincode,
-        address,
+        street_name,
         wifi_available,
         food_available,
         rules,
         pg_image_url,
+        pg_type,
       } = req.body;
 
-      // Data Type Validations
-      if (typeof user_id !== "string")
-        throw new TypeError("User ID must be of type string");
+      const user_id = req.user.id;
+      if (!user_id) {
+        throw new TypeError("Authorization failed: token missing");
+      }
+
+      // Data Validations (same as you already wrote)
       if (typeof pg_name !== "string")
-        throw new TypeError("PG name must be of type string");
-      if (typeof street_name !== "string")
-        throw new TypeError("Street name must be of type string");
-      if (typeof house_no !== "number")
-        throw new TypeError("House number must be of type number");
+        throw new TypeError("PG name must be string");
+      if (typeof district !== "string")
+        throw new TypeError("Disctrict name must be string");
+      if (typeof Number(house_no) !== "number")
+        throw new TypeError("House number must be number");
       if (typeof state !== "string")
-        throw new TypeError("State must be of type string");
-      if (typeof rent !== "number")
-        throw new TypeError("Rent must be of type number");
-      if (typeof pincode !== "number")
-        throw new TypeError("Pincode must be of type number");
-      if (typeof address !== "string")
-        throw new TypeError("Address must be of type string");
-      if (typeof wifi_available !== "boolean")
-        throw new TypeError("Wifi availability must be a boolean");
-      if (typeof food_available !== "boolean")
-        throw new TypeError("Food availability must be a boolean");
+        throw new TypeError("State must be string");
+      if (typeof Number(pincode) !== "number")
+        throw new TypeError("Pincode must be number");
+      if (typeof street_name !== "string")
+        throw new TypeError("Street Name must be string");
+      if (wifi_available !== "yes" && wifi_available !== "no")
+        throw new TypeError("Wifi must be yes/no");
+      if (food_available !== "yes" && food_available !== "no")
+        throw new TypeError("Food must be yes/no");
       if (typeof rules !== "string")
-        throw new TypeError("Rules must be of type string");
+        throw new TypeError("Rules must be string");
       if (typeof pg_image_url !== "string")
-        throw new TypeError("PG image URL must be of type string");
+        throw new TypeError("PG image URL must be string");
+      if (typeof pg_type !== "string")
+        throw new TypeError("PG Type must be string");
+      if (!/^\d{6}$/.test(pincode.toString()))
+        throw new EvalError("Pincode must be 6 digits");
 
       // Validate Pincode Format
       if (!/^\d{6}$/.test(pincode.toString())) {
         throw new EvalError("Pincode must be exactly 6 digits");
       }
+
+      //computing the address
+      const address = `${house_no}, ${street_name}, ${district?.replace(
+        district[0],
+        district[0].toUpperCase()
+      )}, ${pincode}`;
+
+      // getting latitude and longitude of the address location
+      const addObject = await Location.getLatLong(
+        "IN",
+        district,
+        pincode,
+        `${house_no} ${street_name}`
+      );
+
+      if (
+        !addObject?.point?.coordinates ||
+        !Array.isArray(addObject.point.coordinates)
+      ) {
+        throw new Error(
+          "Could not get valid coordinates from location service"
+        );
+      }
+
+      const location = {
+        type: addObject?.point?.type,
+        coordinates: [...addObject?.point?.coordinates].reverse(),
+      };
+
       const updateData = {
-        user_id,
         pg_name,
-        street_name,
+        district,
         house_no,
         state,
-        rent,
         pincode,
-        address,
+        street_name,
         wifi_available,
         food_available,
         rules,
         pg_image_url,
+        pg_type,
+        address,
+        location: location
       };
-
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new TypeError("Invalid PG ID format");
-      }
 
       const updatedPg = await PgInfo_Model.findByIdAndUpdate(id, updateData, {
         new: true,
@@ -489,7 +609,7 @@ export class Pg {
       }
 
       res.status(200).json({
-        message: "PG updated successfully",
+        message: "PG Basic Details updated successfully",
         data: updatedPg,
       });
     } catch (error) {
@@ -501,7 +621,75 @@ export class Pg {
           : 500;
 
       res.status(statusCode).json({
-        message: "Failed to update PG",
+        message: "Failed to update PG Basic Details",
+        error: error.message,
+      });
+    }
+  }
+
+  static async update_RoomDetails(req, res) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { id } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new TypeError("Invalid PG ID format");
+      }
+
+      const user_id = req.user.id;
+      if (!user_id) {
+        throw new TypeError("Authorization failed: token missing");
+      }
+
+      // ======= ROOMS =======
+      const array_of_rooms = req?.body?.rooms;
+
+      if (array_of_rooms && array_of_rooms?.length === 0) {
+        throw new Error("Rooms cannot be empty");
+      }
+
+      //========== Parsing Room =========
+
+      const updatedRooms = [];
+
+      for (let index = 0; index < array_of_rooms?.length; index++) {
+        const room = array_of_rooms[index];
+        const roomInfo = {
+          ...room,
+        };
+        const updatedRoom = await Room.UpdateRoom(roomInfo, req, index);
+        updatedRooms.push(updatedRoom);
+      }
+
+      await session.commitTransaction();
+      session.endSession();
+
+      res.status(200).json({
+        message: "Rooms Updated successfully",
+        data: updatedRooms
+      });
+    } catch (error) {
+      await session.abortTransaction();
+
+      session.endSession();
+
+      console.error(error.message);
+
+      const statusCode =
+        error instanceof TypeError ||
+        error instanceof EvalError ||
+        error instanceof ReferenceError
+          ? 400
+          : 500;
+
+      res.status(statusCode).json({
+        message: "Room Updations failed, transaction rolled back",
         error: error.message,
       });
     }
