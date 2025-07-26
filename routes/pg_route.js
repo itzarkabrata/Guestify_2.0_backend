@@ -17,12 +17,24 @@ const router = Router();
 // Cloudinary implementation
 const upload = multer({ storage: storage });
 
-
 router.get("/getAllPg",Pg.getAllPg);
 router.get("/getPg/:id",Pg.getPg);
-router.get("/getPg/user/:userid",Pg.getPG_ByUser);
+
+// === Below routes need user authentication
+router.get("/getPg/user/:userid",User.isLoggedIn,Pg.getPG_ByUser);
+router.get("/getPg/:id/basic-details",User.isLoggedIn,Pg.getPg_BasicDetails);
+router.get("/getPg/:id/room-details",User.isLoggedIn,Pg.getPg_RoomDetails);
+
+// === INSERTING ===
 router.post("/addpg",User.isLoggedIn, upload.any(), Pg.addPg);
+
+
+// === DELETE
 router.delete("/deletePg/:id",User.isLoggedIn, Pg.deletePg);
-router.put("/updatePg/:id",User.isLoggedIn, upload.any(), Pg.updatePg);
+
+
+// == UPDATE ==
+router.put("/updatePg/:id/basic-details",User.isLoggedIn, upload.any(), Pg.updatePg_BasicDetails);
+router.put("/updatePg/:id/room-details",User.isLoggedIn, upload.any(), Pg.update_RoomDetails);
 
 export const pg_router = router;
