@@ -70,10 +70,12 @@ server.listen(port_number, async () => {
     await Database.createMongoConnection();
     
     await AMQP.establishConn("noti-queue");
-    //Soc_Conn.establish_conn(io);
+    // Enable socket connection for real-time notifications
+    Soc_Conn.establish_conn(io);
     
     console.log(`Server started at port number ${port_number}`);
     console.log(`Type of deployment : ${process.env.NODE_ENV}`);
+    console.log('Server-Sent Events enabled for notifications');
 
     // continuously consuming messages from primary queue
     await AMQP.consumeMsg("noti-queue");

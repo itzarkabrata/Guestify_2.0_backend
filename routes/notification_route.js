@@ -5,6 +5,9 @@ const router = Router();
 
 router.get("/getNotification",Notification.getNotifications);
 
+// Server-Sent Events endpoint for real-time notifications
+router.get("/notifications/subscribe", Notification.subscribeToNotifications);
+
 router.patch("/updateNotification/:id",Notification.makeNotiRead);
 
 router.put("/updateNotifications",Notification.makeAllNotiRead);
