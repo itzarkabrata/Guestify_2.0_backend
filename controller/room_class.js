@@ -81,7 +81,9 @@ export class Room {
 
     const new_room = new RoomInfo_Model({ ...room });
 
-    await new_room.save();
+    const savedRoom = await new_room.save();
+
+    return savedRoom;
   }
 
   static async UpdateRoom(room, req, index) {
