@@ -700,4 +700,74 @@ export class Pg {
       });
     }
   }
+
+  static async enlist_NewRooms(req, res) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { id } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new TypeError("Invalid PG ID format");
+      }
+
+      const user_id = req.user.id;
+      if (!user_id) {
+        throw new TypeError("Authorization failed: token missing");
+      }
+
+      // ======= ROOMS =======
+      const array_of_rooms = req?.body?.rooms;
+
+      if (array_of_rooms && array_of_rooms?.length === 0) {
+        throw new Error("Empty Rooms cannot be enlisted");
+      }
+
+      //========== Parsing Room =========
+
+      const newRooms = [];
+
+      for (let index = 0; index < array_of_rooms?.length; index++) {
+        const room = array_of_rooms[index];
+        const roomInfo = {
+          ...room,
+          pg_id: id,
+        };
+        const newRoom = await Room.CreateRoom(roomInfo, req, index);
+        newRooms.push(newRoom);
+      }
+
+      await session.commitTransaction();
+      session.endSession();
+
+      res.status(200).json({
+        message: "Rooms Created successfully",
+        data: newRooms
+      });
+
+    } catch (error) {
+      await session.abortTransaction();
+
+      session.endSession();
+
+      console.error(error.message);
+
+      const statusCode =
+        error instanceof TypeError ||
+        error instanceof EvalError ||
+        error instanceof ReferenceError
+          ? 400
+          : 500;
+
+      res.status(statusCode).json({
+        message: "Room Creation failed, transaction rolled back",
+        error: error.message,
+      });
+    }
+  }
 }
