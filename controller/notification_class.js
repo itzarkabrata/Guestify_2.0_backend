@@ -172,8 +172,8 @@ export class Notification {
       res.write(`data: ${JSON.stringify({ message: 'Connected to notification stream' })}\n\n`);
 
       // Get user ID or device token from request
-      const auth_token = req.headers["authorization"];
-      const device_token = req.headers["devicetoken"];
+      const auth_token = req.headers["authorization"] || (req.query.auth_token);
+      const device_token = req.headers["devicetoken"] || (req.query.device_token);
 
       let userId = null;
 
