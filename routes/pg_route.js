@@ -27,6 +27,7 @@ router.get("/getPg/:id/room-details",User.isLoggedIn,Pg.getPg_RoomDetails);
 
 // === INSERTING ===
 router.post("/addpg",User.isLoggedIn, upload.any(), Pg.addPg);
+router.post("/:id/addRooms",User.isLoggedIn, upload.any(), Pg.enlist_NewRooms);
 
 
 // === DELETE

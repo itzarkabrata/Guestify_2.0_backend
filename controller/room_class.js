@@ -6,24 +6,11 @@ import cloudinary from "../lib/assetstorage_config.js";
 
 export class Room {
   static async CreateRoom(room, req, index) {
-    const {
-      room_type,
-      room_rent,
-      ac_available,
-      attached_bathroom,
-      deposit_duration,
-      pg_id,
-    } = room;
-    // validate each room entry
-
-    let roomImage = null;
-
     if (!req) {
-      throw new Error("Req body is required");
+      throw new Error("Req body is required for Rooms");
     }
-
+    
     // console.log("roomObj", req?.body);
-
     // console.log("files",req?.files)
 
     // Find the uploaded file for this room
@@ -33,20 +20,37 @@ export class Room {
 
     // console.log(roomfile,"Room File");
 
-    if (roomfile) {
-      // Save file to cloud / disk and get URL
-      roomImage = roomfile?.path;
+    if (Object?.keys(roomfile)?.length!==0) {
+      room.room_image_url = roomfile?.path; // storing the url
+      room.room_image_id = roomfile?.filename; // storing the public id
+    }
+    else{
+      throw new Error("Room Image is not been uploaded");
     }
 
     // console.log(roomImage,"Room Image");
+
+    const {
+      room_type,
+      room_rent,
+      ac_available,
+      attached_bathroom,
+      deposit_duration,
+      room_image_url,
+      room_image_id,
+      pg_id,
+    } = room;
+    // validate each room entry
 
     if (typeof room_type !== "string")
       throw new TypeError("Room type must be of type string");
     if (!["single", "double", "triple"].includes(room_type))
       throw new TypeError("Room type must be 'single', 'double', or 'triple'");
 
-    if (typeof roomImage !== "string")
+    if (typeof room_image_url !== "string")
       throw new TypeError("Room image URL must be of type string");
+    if (typeof room_image_id !== "string")
+      throw new TypeError("Room image ID must be of type string");
 
     if (typeof Number(room_rent) !== "number" || isNaN(Number(room_rent)))
       throw new TypeError("Room rent must be of type number");
@@ -75,9 +79,11 @@ export class Room {
     if (!mongoose.Types.ObjectId.isValid(pg_id))
       throw new TypeError("PG ID must be a valid ObjectId format");
 
-    const new_room = new RoomInfo_Model({ ...room, room_image_url: roomImage });
+    const new_room = new RoomInfo_Model({ ...room });
 
-    await new_room.save();
+    const savedRoom = await new_room.save();
+
+    return savedRoom;
   }
 
   static async UpdateRoom(room, req, index) {
@@ -89,7 +95,6 @@ export class Room {
       ac_available,
       attached_bathroom,
       deposit_duration,
-      room_image_url,
     } = room;
     // validate each room entry
 
@@ -100,18 +105,22 @@ export class Room {
       throw new TypeError("Room ID must be a valid ObjectId format");
 
     if (!req) {
-      throw new Error("Req body is required");
+      throw new Error("Req body is required for Updating Rooms");
     }
 
     // extract and delete old image if exists
-    const imageUrl = room_image_url;
+    const prev_img = await RoomInfo_Model.findOne(
+      { _id: _id },
+      { room_image_url: 1, room_image_id: 1 }
+    );
 
-    if (imageUrl !== null && imageUrl !== "") {
-      const publicId = getPublicIdFromUrl(imageUrl);
-      await cloudinary.uploader.destroy(publicId);
+    if (prev_img?.room_image_url !== null && prev_img?.room_image_url !== "") {
+      try {
+        await cloudinary.uploader.destroy(prev_img?.room_image_id);
+      } catch (error) {
+        throw new Error(`Error while Deleting Image : ${error?.message}`);
+      }
     }
-
-    let roomImage = null;
 
     // Find the uploaded file for this room
     const roomfile = req.files.find(
@@ -119,8 +128,8 @@ export class Room {
     );
 
     if (roomfile) {
-      // Save file to cloud / disk and get URL
-      roomImage = roomfile?.path;
+      room.room_image_url = roomfile?.path; // storing the url
+      room.room_image_id = roomfile?.filename; // storing the public id
     }
 
     if (typeof room_type !== "string")
@@ -128,7 +137,9 @@ export class Room {
     if (!["single", "double", "triple"].includes(room_type))
       throw new TypeError("Room type must be 'single', 'double', or 'triple'");
 
-    if (typeof roomImage !== "string")
+    if (typeof room.room_image_url !== "string")
+      throw new TypeError("Room image URL must be of type string");
+    if (typeof room.room_image_id !== "string")
       throw new TypeError("Room image URL must be of type string");
 
     if (typeof Number(room_rent) !== "number" || isNaN(Number(room_rent)))
@@ -162,7 +173,8 @@ export class Room {
       ac_available,
       attached_bathroom,
       deposit_duration,
-      room_image_url: roomImage,
+      room_image_url: room.room_image_url,
+      room_image_id: room.room_image_id
     };
 
     const updatedRoom = await RoomInfo_Model.findByIdAndUpdate(
@@ -200,16 +212,20 @@ export class Room {
       // extract and delete old image if exists
       const prev_img = await RoomInfo_Model.findOne(
         { _id: roomid },
-        { room_image_url: 1 }
+        { room_image_url: 1, room_image_id: 1 }
       );
-      const imageUrl = prev_img?.room_image_url;
 
-      if (imageUrl !== null && imageUrl !== "") {
-        const publicId = getPublicIdFromUrl(imageUrl);
-        await cloudinary.uploader.destroy(publicId);
+      if (prev_img?.room_image_url !== null && prev_img?.room_image_url !== "") {
+        try {
+          await cloudinary.uploader.destroy(prev_img?.room_image_id);
+        } catch (error) {
+          throw new Error(`Error while Deleting Room image : ${error?.message}`)
+        }
       }
 
-      const deleteRoom = await RoomInfo_Model.findByIdAndDelete(roomid);
+      const deleteRoom = await RoomInfo_Model.deleteOne({_id:roomid});
+
+      // console.log(deleteRoom)
 
       if (!deleteRoom?.acknowledged) {
         throw new Error("Rooms under the PG not deleted");
