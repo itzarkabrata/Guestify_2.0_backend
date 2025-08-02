@@ -12,6 +12,9 @@ const roomInfoSchema = new Schema({
     required: [true, "Room image URL is required"],
     trim: true,
   },
+  room_image_id: {
+    type: String,
+  },
   room_rent: {
     type: Number,
     required: [true, "Room rent is required"],
