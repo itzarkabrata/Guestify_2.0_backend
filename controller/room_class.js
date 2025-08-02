@@ -221,7 +221,9 @@ export class Room {
         }
       }
 
-      const deleteRoom = await RoomInfo_Model.findByIdAndDelete(roomid);
+      const deleteRoom = await RoomInfo_Model.deleteOne({_id:roomid});
+
+      // console.log(deleteRoom)
 
       if (!deleteRoom?.acknowledged) {
         throw new Error("Rooms under the PG not deleted");
