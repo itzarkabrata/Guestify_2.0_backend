@@ -75,6 +75,9 @@ const pgInfoSchema = new Schema({
     type: String,
     required: [true, 'PG image URL is required'],
   },
+  pg_image_id: {
+    type: String,
+  },
   pg_type: {
     type: String,
     enum: {
