@@ -11,6 +11,7 @@ export class Review {
           createdAt: -1,
         });
 
+        console.log(reviews)
         res.status(200).json({
           success: true,
           message: "Reviews fetched successfully",
@@ -41,10 +42,8 @@ export class Review {
         throw new Error("Database server is not connected properly");
       }
 
-      const reviewFile = req.files.find((f) => f.fieldname === "image_url");
-      if (reviewFile) {
-        req.body.review_image_url = reviewFile?.path;
-      }
+      const reviewFile = Array.isArray(req.files) && req.files.find((f) => f.fieldname === "image_url");
+      req.body.review_image_url = reviewFile ? reviewFile?.path : "";
 
       // console.log(req.files,"Files Object");
       // console.log(pgFile,"PG File");
