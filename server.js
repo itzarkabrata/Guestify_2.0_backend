@@ -11,8 +11,7 @@ import { review_router } from "./routes/review_route.js";
 import { user_profile_router } from "./routes/user_profile_route.js";
 import path from "path";
 import { fileURLToPath } from "url";
-import { Soc_Conn } from "./lib/socket.connect.js";
-import { app , server, io } from "./server-utils/instances.js";
+import { app , server } from "./server-utils/instances.js";
 import { AMQP } from "./lib/amqp.connect.js";
 import { notification_router } from "./routes/notification_route.js";
 import { room_router } from "./routes/room_route.js";
@@ -70,8 +69,6 @@ server.listen(port_number, async () => {
     await Database.createMongoConnection();
     
     await AMQP.establishConn("noti-queue");
-    // Enable socket connection for real-time notifications
-    Soc_Conn.establish_conn(io);
     
     console.log(`Server started at port number ${port_number}`);
     console.log(`Type of deployment : ${process.env.NODE_ENV}`);
