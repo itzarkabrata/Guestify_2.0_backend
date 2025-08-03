@@ -4,6 +4,9 @@ import { Notification_Model } from "../models/notification.js";
 import jwt from "jsonwebtoken";
 
 export class Notification {
+
+  static clients = new Map();
+  
   static async createNotification({
     notification_type,
     message,
