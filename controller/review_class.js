@@ -11,19 +11,20 @@ export class Review {
           createdAt: -1,
         });
 
-        console.log(reviews)
+        console.log(reviews);
         res.status(200).json({
           success: true,
           message: "Reviews fetched successfully",
-          data: reviews.map(({ _id, full_name, feedback, review_image_url, rating }) => ({
-            _id,
-            full_name,
-            feedback,
-            image_url : review_image_url,
-            rating
-          })),
+          data: reviews.map(
+            ({ _id, full_name, feedback, review_image_url, rating }) => ({
+              _id,
+              full_name,
+              feedback,
+              image_url: review_image_url,
+              rating,
+            })
+          ),
         });
-
       } else {
         throw new Error("Database server is not connected properly");
       }
@@ -42,7 +43,9 @@ export class Review {
         throw new Error("Database server is not connected properly");
       }
 
-      const reviewFile = Array.isArray(req.files) && req.files.find((f) => f.fieldname === "image_url");
+      const reviewFile =
+        Array.isArray(req.files) &&
+        req.files.find((f) => f.fieldname === "image_url");
       req.body.review_image_url = reviewFile ? reviewFile?.path : "";
 
       // console.log(req.files,"Files Object");
@@ -51,7 +54,7 @@ export class Review {
       const { full_name, email, feedback, review_image_url, rating } = req.body;
       const { pg_id } = req.params;
 
-      const ratingAsNumber = Number(rating)
+      const ratingAsNumber = Number(rating);
 
       if (typeof full_name !== "string")
         throw new TypeError("Full name must be of type string");
@@ -75,7 +78,9 @@ export class Review {
 
         await existingReview.save();
 
-        return res.status(200).json({ success:true, message: "Review updated successfully" });
+        return res
+          .status(200)
+          .json({ success: true, message: "Review updated successfully" });
       }
 
       const review = new Review_Model({
@@ -83,14 +88,30 @@ export class Review {
         email,
         feedback,
         review_image_url,
-        rating : ratingAsNumber,
+        rating: ratingAsNumber,
         pg_id,
       });
 
       await review.save();
-      res.status(201).json({ success:true, message: "Review created successfully" });
+      res
+        .status(201)
+        .json({ success: true, message: "Review created successfully" });
     } catch (error) {
-      res.status(500).json({ success:false, message: "Server Error", error });
+      res.status(500).json({ success: false, message: "Server Error", error });
     }
+  }
+
+  static async GetAvgRating(pg_id) {
+    const result = await Review_Model.aggregate([
+      { $match: { pg_id: pg_id } },
+      {
+        $group: {
+          _id: null,
+          averageRating: { $avg: "$rating" },
+        },
+      },
+    ]);
+
+    return result[0]?.averageRating ?? 0;
   }
 }
