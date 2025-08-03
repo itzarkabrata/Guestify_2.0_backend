@@ -6,8 +6,8 @@ import { Location } from "../lib/externalAPI/location.js";
 import { RoomInfo_Model } from "../models/roominfo.js";
 // import { getPublicIdFromUrl } from "../server-utils/publicURLFetcher.js";
 import cloudinary from "../lib/assetstorage_config.js";
-import { filterPGsAndRoomsByRent } from "../server-utils/publicURLFetcher.js";
-import { Review } from "./review_class.js";
+// import { filterPGsAndRoomsByRent } from "../server-utils/publicURLFetcher.js";
+// import { Review } from "./review_class.js";
 
 export class Pg {
   static async parseRoomArray(req) {
@@ -58,15 +58,31 @@ export class Pg {
         pg_type = "",
         wifi_available = "",
         food_available = "",
-        minRent = "",
-        maxRent = "",
+        minRent,
+        maxRent,
+        sort = "-minRent",
       } = req.query;
 
+      console.log("Query Params:", req.query);
+
       // Both query parameter needed
-      if (!kmradi && !coordinates) {
+      if (!kmradi || !coordinates) {
         throw new Error(
           "Missing Query Paramteres : either kmradius or coordinates"
         );
+      }
+      
+      // Allowed Sort Fields
+      const allowedSortFields = ["minRent", "averageRating"];
+
+      let sortField = "minRent";
+      let sortDirection = 1; 
+      if (sort?.startsWith("-")) {
+        sortField = sort.slice(1);
+        sortDirection = -1;
+      } else {
+        sortField = sort;
+        sortDirection = 1;
       }
 
       // Compute km to radian for geo searching
@@ -82,7 +98,13 @@ export class Pg {
       if (food_available) additionalFilters.food_available = food_available;
 
       // Finding the pgs based on a certain radius
-      const pgList = await PgInfo_Model.aggregate([
+      const min =
+        minRent !== undefined && minRent !== "" ? Number(minRent) : null;
+      const max =
+        maxRent !== undefined && maxRent !== "" ? Number(maxRent) : null;
+
+      const pipeline = [
+        // Step 1: Geospatial filtering
         {
           $match: {
             location: {
@@ -92,38 +114,111 @@ export class Pg {
             },
           },
         },
+
+        // Step 2: Apply additional filters if provided
         {
-          // Additional Query
           $match: {
             ...additionalFilters,
           },
         },
-      ]);
+
+        // Step 3: Join with rooms collection
+        {
+          $lookup: {
+            from: "roominfos", // your actual collection name
+            localField: "_id",
+            foreignField: "pg_id",
+            as: "rooms",
+          },
+        },
+
+        // Step 4: Filter the joined rooms based on min/max rent (optional)
+        {
+          $addFields: {
+            rooms: {
+              $filter: {
+                input: "$rooms",
+                as: "room",
+                cond:
+                  min !== null || max !== null
+                    ? {
+                        $and: [
+                          ...(min !== null
+                            ? [{ $gte: ["$$room.room_rent", min] }]
+                            : []),
+                          ...(max !== null
+                            ? [{ $lte: ["$$room.room_rent", max] }]
+                            : []),
+                        ],
+                      }
+                    : { $gt: ["$$room.room_rent", -1] }, // always true fallback
+              },
+            },
+          },
+        },
+
+        // Step 5: Only keep PGs that have at least 1 matching room
+        {
+          $match: {
+            "rooms.0": { $exists: true },
+          },
+        },
+        // === Add minimum rent per PG ===
+        {
+          $addFields: {
+            minRent: { $min: "$rooms.room_rent" },
+          },
+        },
+        // === Lookup reviews and calculate average rating ===
+        {
+          $lookup: {
+            from: "reviews",
+            localField: "_id",
+            foreignField: "pg_id",
+            as: "reviews",
+          },
+        },
+        {
+          $addFields: {
+            averageRating: { $avg: "$reviews.rating" },
+          },
+        },
+        {
+          $project: {
+            reviews: 0
+          },
+        },
+      ];
+
+      if (allowedSortFields?.includes(sortField)) {
+        pipeline.push({
+          $sort: {
+            [sortField]: sortDirection,
+          },
+        });
+      }
+
+
+      const pgList = await PgInfo_Model.aggregate(pipeline);
 
       const final_response = [];
 
       for (const pg of pgList) {
-        const rooms = await Room.GetRooms(pg?._id);
 
-        const minRent = await Room.GetMinimumRoomRent(pg?._id);
-
-        const averageRating = await Review.GetAvgRating(pg?._id);
+        const {rooms, minRent, averageRating, ...rest} = pg;
 
         let res_data = {
-          pginfo: { ...pg, minRent: minRent, averageRating: averageRating },
+          pginfo: { ...rest, minRent: minRent, averageRating: averageRating },
           rooms: rooms,
         };
 
         final_response?.push(res_data);
       }
 
-      // if min and max rent given then the filterd result will be called
-      const final_data = (minRent || maxRent) ? filterPGsAndRoomsByRent(final_response,minRent,maxRent) : final_response;
-
       res.status(200).json({
         message: "PGs fetched successfully",
-        count: final_data.length,
-        data: final_data,
+        count: final_response.length,
+        data: final_response,
       });
     } catch (error) {
       console.error(error.message);
