@@ -56,7 +56,7 @@ export class Notification {
     });
 
     // Send SSE notification to connected clients
-    this.sendSSENotificationUpdate(newNotification, 'new');
+    Notification.sendSSENotificationUpdate(newNotification, 'new');
 
     return newNotification;
   }
@@ -266,7 +266,7 @@ export class Notification {
         // Get the updated notification to send via SSE
         const updatedNotification = await Notification_Model.findById(id);
         if (updatedNotification) {
-          this.sendSSENotificationUpdate(updatedNotification, 'updated');
+          Notification.sendSSENotificationUpdate(updatedNotification, 'updated');
         }
 
         res.status(200).json({
@@ -313,7 +313,7 @@ export class Notification {
           // Send SSE update for all read notifications
           if (updatedNotifications.length > 0) {
             const notificationIds = updatedNotifications.map(n => n._id);
-            this.sendSSENotificationUpdate(
+            Notification.sendSSENotificationUpdate(
               { device_token: device_token },
               'all_read',
               notificationIds
@@ -352,7 +352,7 @@ export class Notification {
       // Send SSE update for all read notifications
       if (updatedNotifications.length > 0) {
         const notificationIds = updatedNotifications.map(n => n._id);
-        this.sendSSENotificationUpdate(
+        Notification.sendSSENotificationUpdate(
           { recipient: user_id },
           'all_read',
           notificationIds
@@ -398,7 +398,7 @@ export class Notification {
 
       if (res_noti.acknowledged) {
         // Send SSE notification update about deletion
-        this.sendSSENotificationUpdate(notification, 'deleted');
+        Notification.sendSSENotificationUpdate(notification, 'deleted');
 
         res.status(200).json({
           message: "Notification has been successfully deleted",
@@ -467,7 +467,7 @@ export class Notification {
       if (res_all_noti.acknowledged) {
         // Send SSE notification update about all deletions
         if (notificationIds.length > 0) {
-          this.sendSSENotificationUpdate(notificationInfo, 'all_deleted', notificationIds);
+          Notification.sendSSENotificationUpdate(notificationInfo, 'all_deleted', notificationIds)
         }
 
         res.status(200).json({
