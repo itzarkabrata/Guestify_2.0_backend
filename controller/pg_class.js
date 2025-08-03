@@ -6,6 +6,8 @@ import { Location } from "../lib/externalAPI/location.js";
 import { RoomInfo_Model } from "../models/roominfo.js";
 // import { getPublicIdFromUrl } from "../server-utils/publicURLFetcher.js";
 import cloudinary from "../lib/assetstorage_config.js";
+// import { filterPGsAndRoomsByRent } from "../server-utils/publicURLFetcher.js";
+// import { Review } from "./review_class.js";
 
 export class Pg {
   static async parseRoomArray(req) {
@@ -50,13 +52,37 @@ export class Pg {
       }
 
       // Getting query paramters
-      const { kmradi, coordinates } = req.query;
+      const {
+        kmradi,
+        coordinates,
+        pg_type = "",
+        wifi_available = "",
+        food_available = "",
+        minRent,
+        maxRent,
+        sort = "-minRent",
+      } = req.query;
+
+      console.log("Query Params:", req.query);
 
       // Both query parameter needed
-      if (!kmradi && !coordinates) {
+      if (!kmradi || !coordinates) {
         throw new Error(
           "Missing Query Paramteres : either kmradius or coordinates"
         );
+      }
+      
+      // Allowed Sort Fields
+      const allowedSortFields = ["minRent", "averageRating"];
+
+      let sortField = "minRent";
+      let sortDirection = 1; 
+      if (sort?.startsWith("-")) {
+        sortField = sort.slice(1);
+        sortDirection = -1;
+      } else {
+        sortField = sort;
+        sortDirection = 1;
       }
 
       // Compute km to radian for geo searching
@@ -64,24 +90,125 @@ export class Pg {
       // Compute the string co-ordinates to array of numeric co-ordinates
       const coordinatesArray = coordinates?.split(",").map(Number);
 
+      // ==== Additional Query Filters ====
+      const additionalFilters = {};
+
+      if (pg_type) additionalFilters.pg_type = pg_type;
+      if (wifi_available) additionalFilters.wifi_available = wifi_available;
+      if (food_available) additionalFilters.food_available = food_available;
+
       // Finding the pgs based on a certain radius
-      const pgList = await PgInfo_Model.find({
-        location: {
-          $geoWithin: {
-            $centerSphere: [coordinatesArray, radiusInRadians],
+      const min =
+        minRent !== undefined && minRent !== "" ? Number(minRent) : null;
+      const max =
+        maxRent !== undefined && maxRent !== "" ? Number(maxRent) : null;
+
+      const pipeline = [
+        // Step 1: Geospatial filtering
+        {
+          $match: {
+            location: {
+              $geoWithin: {
+                $centerSphere: [coordinatesArray, radiusInRadians],
+              },
+            },
           },
         },
-      });
+
+        // Step 2: Apply additional filters if provided
+        {
+          $match: {
+            ...additionalFilters,
+          },
+        },
+
+        // Step 3: Join with rooms collection
+        {
+          $lookup: {
+            from: "roominfos", // your actual collection name
+            localField: "_id",
+            foreignField: "pg_id",
+            as: "rooms",
+          },
+        },
+
+        // Step 4: Filter the joined rooms based on min/max rent (optional)
+        {
+          $addFields: {
+            rooms: {
+              $filter: {
+                input: "$rooms",
+                as: "room",
+                cond:
+                  min !== null || max !== null
+                    ? {
+                        $and: [
+                          ...(min !== null
+                            ? [{ $gte: ["$$room.room_rent", min] }]
+                            : []),
+                          ...(max !== null
+                            ? [{ $lte: ["$$room.room_rent", max] }]
+                            : []),
+                        ],
+                      }
+                    : { $gt: ["$$room.room_rent", -1] }, // always true fallback
+              },
+            },
+          },
+        },
+
+        // Step 5: Only keep PGs that have at least 1 matching room
+        {
+          $match: {
+            "rooms.0": { $exists: true },
+          },
+        },
+        // === Add minimum rent per PG ===
+        {
+          $addFields: {
+            minRent: { $min: "$rooms.room_rent" },
+          },
+        },
+        // === Lookup reviews and calculate average rating ===
+        {
+          $lookup: {
+            from: "reviews",
+            localField: "_id",
+            foreignField: "pg_id",
+            as: "reviews",
+          },
+        },
+        {
+          $addFields: {
+            averageRating: { $avg: "$reviews.rating" },
+          },
+        },
+        {
+          $project: {
+            reviews: 0
+          },
+        },
+      ];
+
+      if (allowedSortFields?.includes(sortField)) {
+        pipeline.push({
+          $sort: {
+            [sortField]: sortDirection,
+          },
+        });
+      }
+
+
+      const pgList = await PgInfo_Model.aggregate(pipeline);
 
       const final_response = [];
 
       for (const pg of pgList) {
-        const rooms = await Room.GetRooms(pg?._id);
 
-        const minRent = await Room.GetMinimumRoomRent(pg?._id);
+        const {rooms, minRent, averageRating, ...rest} = pg;
 
         let res_data = {
-          pginfo: { ...pg._doc, minRent: minRent },
+          pginfo: { ...rest, minRent: minRent, averageRating: averageRating },
           rooms: rooms,
         };
 
@@ -90,7 +217,7 @@ export class Pg {
 
       res.status(200).json({
         message: "PGs fetched successfully",
-        count: pgList.length,
+        count: final_response.length,
         data: final_response,
       });
     } catch (error) {
@@ -131,7 +258,6 @@ export class Pg {
     }
   }
 
-
   static async getPg_RoomDetails(req, res) {
     try {
       if (!(await Database.isConnected())) {
@@ -159,7 +285,6 @@ export class Pg {
       });
     }
   }
-
 
   static async getPg(req, res) {
     try {
@@ -196,7 +321,7 @@ export class Pg {
     }
   }
 
-  static async getPG_ByUser(req,res){
+  static async getPG_ByUser(req, res) {
     try {
       if (!(await Database.isConnected())) {
         throw new Error("Database server is not connected properly");
@@ -208,7 +333,7 @@ export class Pg {
         throw new TypeError("Invalid User ID format");
       }
 
-      const pgList = await PgInfo_Model.find({user_id: userid});
+      const pgList = await PgInfo_Model.find({ user_id: userid });
 
       const final_response = [];
 
@@ -378,7 +503,6 @@ export class Pg {
 
       //========== Parsing Room =========
 
-
       for (let index = 0; index < array_of_rooms?.length; index++) {
         const room = array_of_rooms[index];
         const roomInfo = {
@@ -430,9 +554,12 @@ export class Pg {
       }
 
       // extract and delete old image if exists
-      const prev_img = await PgInfo_Model.findOne({ _id: id }, { pg_image_url: 1, pg_image_id: 1 });
+      const prev_img = await PgInfo_Model.findOne(
+        { _id: id },
+        { pg_image_url: 1, pg_image_id: 1 }
+      );
 
-      if(prev_img?.pg_image_url!==null && prev_img?.pg_image_url!==""){
+      if (prev_img?.pg_image_url !== null && prev_img?.pg_image_url !== "") {
         try {
           await cloudinary.uploader.destroy(prev_img?.pg_image_id);
         } catch (error) {
@@ -446,9 +573,9 @@ export class Pg {
         throw new ReferenceError("PG not found");
       }
 
-      const deleteRoom = await RoomInfo_Model.deleteMany({pg_id : id});
+      const deleteRoom = await RoomInfo_Model.deleteMany({ pg_id: id });
 
-      if(!(deleteRoom?.acknowledged)){
+      if (!deleteRoom?.acknowledged) {
         throw new Error("Rooms under the PG not deleted");
       }
 
@@ -489,9 +616,12 @@ export class Pg {
       }
 
       // extract and delete old image if exists
-      const prev_img = await PgInfo_Model.findOne({ _id: id }, { pg_image_url: 1, pg_image_id: 1 });
+      const prev_img = await PgInfo_Model.findOne(
+        { _id: id },
+        { pg_image_url: 1, pg_image_id: 1 }
+      );
 
-      if(prev_img?.pg_image_url!==null && prev_img?.pg_image_url!==""){
+      if (prev_img?.pg_image_url !== null && prev_img?.pg_image_url !== "") {
         try {
           await cloudinary.uploader.destroy(prev_img?.pg_image_id);
         } catch (error) {
@@ -505,7 +635,6 @@ export class Pg {
         req.body.pg_image_url = pgFile?.path; // storing the url of the image
         req.body.pg_image_id = pgFile?.filename; // storing the public id of the image
       }
-
 
       const {
         pg_name,
@@ -602,7 +731,7 @@ export class Pg {
         pg_image_id,
         pg_type,
         address,
-        location: location
+        location: location,
       };
 
       const updatedPg = await PgInfo_Model.findByIdAndUpdate(id, updateData, {
@@ -678,7 +807,7 @@ export class Pg {
 
       res.status(200).json({
         message: "Rooms Updated successfully",
-        data: updatedRooms
+        data: updatedRooms,
       });
     } catch (error) {
       await session.abortTransaction();
@@ -747,9 +876,8 @@ export class Pg {
 
       res.status(200).json({
         message: "Rooms Created successfully",
-        data: newRooms
+        data: newRooms,
       });
-
     } catch (error) {
       await session.abortTransaction();
 
