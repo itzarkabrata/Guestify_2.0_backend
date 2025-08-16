@@ -14,7 +14,10 @@ export class PhoneSMS {
         if (process.env.OTP_BYPASS === "true") {
           return res.status(200).json({
             message: "OTP bypassed for testing",
-            bypassed: true,
+            data: {
+              phoneNumber: phoneNumber,
+              bypassed: true,
+            },
           });
         }
 
@@ -27,8 +30,11 @@ export class PhoneSMS {
 
         res.status(200).json({
           message: "Verification code sent successfully",
-          bypassed: false,
-          sid: verification.sid,
+          data: {
+            phoneNumber: phoneNumber,
+            bypassed: false,
+            sid: verification.sid,
+          }
         });
       } else {
         throw new Error("Database server is not connected properly");

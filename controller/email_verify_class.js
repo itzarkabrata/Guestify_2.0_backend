@@ -19,7 +19,11 @@ export class emailVerifyClass {
         if (process.env.EMAIL_OTP_BYPASS === "true") {
           return res.status(200).json({
             message: "Email OTP bypassed for testing",
-            bypassed: true,
+            data: {
+              email: email,
+              owner_name: owner_name,
+              bypassed: true,
+            },
           });
         }
 
@@ -45,8 +49,11 @@ export class emailVerifyClass {
 
         res.status(200).json({
           message: "Verification code sent successfully",
-          bypassed: false,
-          from: info.from,
+          data:{
+            bypassed: false,
+            from: info.from,
+            to: info.to ?? '',
+          }
         });
       } else {
         throw new Error("Database server is not connected properly");
