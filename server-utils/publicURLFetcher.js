@@ -43,3 +43,11 @@ export function filterPGsAndRoomsByRent(data, minRent, maxRent) {
     });
   });
 }
+
+export function toBoolean(value) {
+  if (typeof value === "boolean") return value; // already boolean
+  if (typeof value === "string") {
+    return value.toLowerCase() === "true";
+  }
+  return false;
+}

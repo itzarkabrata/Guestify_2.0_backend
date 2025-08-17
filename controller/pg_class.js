@@ -6,6 +6,7 @@ import { Location } from "../lib/externalAPI/location.js";
 import { RoomInfo_Model } from "../models/roominfo.js";
 // import { getPublicIdFromUrl } from "../server-utils/publicURLFetcher.js";
 import cloudinary from "../lib/assetstorage_config.js";
+import { ownerClass } from "./owner_class.js";
 // import { filterPGsAndRoomsByRent } from "../server-utils/publicURLFetcher.js";
 // import { Review } from "./review_class.js";
 
@@ -435,6 +436,10 @@ export class Pg {
         throw new TypeError("Invalid PG ID format");
       }
 
+      if(!req.body.contact_detals) {
+        throw new Error("Contact details are required");
+      }
+
       // ======= ROOMS =======
       const array_of_rooms = req?.body?.rooms;
 
@@ -500,6 +505,15 @@ export class Pg {
       });
 
       const new_pg = await newPg.save({ session });
+
+      // ========= Add contact details ==========
+      const contactDetailsData = {
+        ...req.body.contact_detals,
+        user_id: user_id,
+        pg_id: new_pg._id,
+      };
+
+      await ownerClass.enlistOwerContactDetails(contactDetailsData);
 
       //========== Parsing Room =========
 
