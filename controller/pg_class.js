@@ -436,7 +436,7 @@ export class Pg {
         throw new TypeError("Invalid PG ID format");
       }
 
-      if(!req.body.contact_detals) {
+      if(!req.body.contact_details) {
         throw new Error("Contact details are required");
       }
 
@@ -508,7 +508,7 @@ export class Pg {
 
       // ========= Add contact details ==========
       const contactDetailsData = {
-        ...req.body.contact_detals,
+        ...req.body.contact_details,
         user_id: user_id,
         pg_id: new_pg._id,
       };
