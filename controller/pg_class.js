@@ -231,6 +231,177 @@ export class Pg {
     }
   }
 
+  static async getPg_forMap(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+      const {
+        kmradi,
+        coordinates,
+        pg_type = "",
+        wifi_available = "",
+        food_available = "",
+        minRent,
+        maxRent,
+        sort = "-minRent",
+      } = req.query;
+      if (!kmradi || !coordinates) {
+        throw new Error(
+          "Missing Query Parameters: either kmradius or coordinates"
+        );
+      }
+      // Allowed Sort Fields
+      const allowedSortFields = ["minRent", "averageRating"];
+
+      let sortField = "minRent";
+      let sortDirection = 1; 
+      if (sort?.startsWith("-")) {
+        sortField = sort.slice(1);
+        sortDirection = -1;
+      } else {
+        sortField = sort;
+        sortDirection = 1;
+      }
+
+      // Compute km to radian for geo searching
+      const radiusInRadians = Number(kmradi) / 6378.1;
+      // Compute the string co-ordinates to array of numeric co-ordinates
+      const coordinatesArray = coordinates?.split(",").map(Number);
+
+      // ==== Additional Query Filters ====
+      const additionalFilters = {};
+
+      if (pg_type) additionalFilters.pg_type = pg_type;
+      if (wifi_available) additionalFilters.wifi_available = wifi_available;
+      if (food_available) additionalFilters.food_available = food_available;
+
+      // Finding the pgs based on a certain radius
+      const min =
+        minRent !== undefined && minRent !== "" ? Number(minRent) : null;
+      const max =
+        maxRent !== undefined && maxRent !== "" ? Number(maxRent) : null;
+
+      const pipeline = [
+        // Step 1: Geospatial filtering
+        {
+          $match: {
+            location: {
+              $geoWithin: {
+                $centerSphere: [coordinatesArray, radiusInRadians],
+              },
+            },
+          },
+        },
+
+        // Step 2: Apply additional filters if provided
+        {
+          $match: {
+            ...additionalFilters,
+          },
+        },
+
+        // Step 3: Join with rooms collection
+        {
+          $lookup: {
+            from: "roominfos", // your actual collection name
+            localField: "_id",
+            foreignField: "pg_id",
+            as: "rooms",
+          },
+        },
+
+        // Step 4: Filter the joined rooms based on min/max rent (optional)
+        {
+          $addFields: {
+            rooms: {
+              $filter: {
+                input: "$rooms",
+                as: "room",
+                cond:
+                  min !== null || max !== null
+                    ? {
+                        $and: [
+                          ...(min !== null
+                            ? [{ $gte: ["$$room.room_rent", min] }]
+                            : []),
+                          ...(max !== null
+                            ? [{ $lte: ["$$room.room_rent", max] }]
+                            : []),
+                        ],
+                      }
+                    : { $gt: ["$$room.room_rent", -1] }, // always true fallback
+              },
+            },
+          },
+        },
+
+        // Step 5: Only keep PGs that have at least 1 matching room
+        {
+          $match: {
+            "rooms.0": { $exists: true },
+          },
+        },
+        // === Add minimum rent per PG ===
+        {
+          $addFields: {
+            minRent: { $min: "$rooms.room_rent" },
+          },
+        },
+        // === Lookup reviews and calculate average rating ===
+        {
+          $lookup: {
+            from: "reviews",
+            localField: "_id",
+            foreignField: "pg_id",
+            as: "reviews",
+          },
+        },
+        {
+          $addFields: {
+            averageRating: { $avg: "$reviews.rating" },
+          },
+        },
+        {
+          $project: {
+            reviews: 0
+          },
+        },
+      ];
+
+      if (allowedSortFields?.includes(sortField)) {
+        pipeline.push({
+          $sort: {
+            [sortField]: sortDirection,
+          },
+        });
+      }
+
+
+      const pgList = await PgInfo_Model.aggregate(pipeline);
+
+      res.status(200).json({
+        message: "PGs fetched successfully",
+        count: pgList.length,
+        data: pgList.map(pg => ({
+          _id: pg._id,
+          pg_name: pg.pg_name,
+          address: pg.address,
+          location: pg.location,
+          // pg_image_url: pg.pg_image_url,
+        })),
+      });      
+
+    } catch (error) {
+      console.error(error.message);
+
+      res.status(500).json({
+        message: "Failed to fetch PGs for map",
+        error: error.message,
+      });
+    }
+  }
+
   static async getPg_BasicDetails(req, res) {
     try {
       if (!(await Database.isConnected())) {
