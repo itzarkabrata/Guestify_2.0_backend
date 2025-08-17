@@ -17,6 +17,7 @@ import { notification_router } from "./routes/notification_route.js";
 import { room_router } from "./routes/room_route.js";
 import { sms_router } from "./routes/sms_route.js";
 import { email_otp_router } from "./routes/email_otp_route.js";
+import { owner_router } from "./routes/owner_route.js";
 
 // Resolve __dirname in ES modules
 export const __filename = fileURLToPath(import.meta.url);
@@ -65,6 +66,8 @@ app.use("/backend", review_router);
 app.use("/backend", sms_router);
 
 app.use("/backend", email_otp_router);
+
+app.use("/backend", owner_router);
 
 
 //response for Undeclared api endpoint
