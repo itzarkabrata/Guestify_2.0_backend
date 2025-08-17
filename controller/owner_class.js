@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
-import { Database } from "../lib/connect";
-import { ContactDetails_Model } from "../models/owner";
-import { toBoolean } from "../server-utils/publicURLFetcher";
+import { Database } from "../lib/connect.js";
+import { ContactDetails_Model } from "../models/owner.js";
+import { toBoolean } from "../server-utils/publicURLFetcher.js";
 
 export class ownerClass {
   static async getOwnerContactDetails(req, res) {
