@@ -235,7 +235,16 @@ export class Pg {
       if (!(await Database.isConnected())) {
         throw new Error("Database server is not connected properly");
       }
-      const { kmradi, coordinates } = req.query;
+      const {
+        kmradi,
+        coordinates,
+        pg_type = "",
+        wifi_available = "",
+        food_available = "",
+        minRent,
+        maxRent,
+        sort = "-minRent",
+      } = req.query;
       if (!kmradi || !coordinates) {
         throw new Error(
           "Missing Query Parameters: either kmradius or coordinates"
