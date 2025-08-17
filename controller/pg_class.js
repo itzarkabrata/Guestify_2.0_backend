@@ -103,6 +103,49 @@ export class Pg {
     }
   }
 
+  static async getPg_forMap(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+      const { kmradi, coordinates } = req.query;
+      if (!kmradi || !coordinates) {
+        throw new Error(
+          "Missing Query Parameters: either kmradius or coordinates"
+        );
+      }
+      const radiusInRadians = Number(kmradi) / 6378.1;
+      const coordinatesArray = coordinates?.split(",").map(Number);
+      const pgList = await PgInfo_Model.find({
+        location: {
+          $geoWithin: {
+            $centerSphere: [coordinatesArray, radiusInRadians],
+          },
+        },
+      });
+
+      res.status(200).json({
+        message: "PGs fetched successfully",
+        count: pgList.length,
+        data: pgList.map(pg => ({
+          _id: pg._id,
+          pg_name: pg.pg_name,
+          address: pg.address,
+          location: pg.location,
+          // pg_image_url: pg.pg_image_url,
+        })),
+      });      
+
+    } catch (error) {
+      console.error(error.message);
+
+      res.status(500).json({
+        message: "Failed to fetch PGs for map",
+        error: error.message,
+      });
+    }
+  }
+
   static async getPg_BasicDetails(req, res) {
     try {
       if (!(await Database.isConnected())) {
