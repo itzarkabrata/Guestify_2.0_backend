@@ -48,10 +48,6 @@ export class ownerClass {
           throw new Error("PG ID is required");
         }
 
-        if(!req.body.contact_details){
-          throw new Error("Contact details not found");
-        }
-
         const {
           country_code,
           phone_number,
@@ -67,7 +63,7 @@ export class ownerClass {
           user_id,
           image_url,
           owner_name
-        } = req.body.contact_details;
+        } = req.body;
 
         // Validate required ObjectIds
         if (!mongoose.Types.ObjectId.isValid(user_id))
