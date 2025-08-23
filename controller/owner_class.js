@@ -195,6 +195,7 @@ export class ownerClass {
       user_id,
       pg_id,
       image_url,
+      owner_name
     } = contactDetailsData;
 
     // Validate required ObjectIds
@@ -254,10 +255,14 @@ export class ownerClass {
     if (typeof image_url !== "string")
       throw new TypeError("Image URL must be of type string");
 
+    if (typeof owner_name !== "string")
+      throw new TypeError("Owner Name must be of type string");
+
     const payload = {
       user_id,
       pg_id,
       image_url,
+      owner_name,
       country_code,
       phone_number,
       is_phone_verified: toBoolean(is_phone_verified),
