@@ -7,6 +7,7 @@ import { RoomInfo_Model } from "../models/roominfo.js";
 // import { getPublicIdFromUrl } from "../server-utils/publicURLFetcher.js";
 import cloudinary from "../lib/assetstorage_config.js";
 import { ownerClass } from "./owner_class.js";
+import { haversineDistance } from "../server-utils/publicURLFetcher.js";
 // import { filterPGsAndRoomsByRent } from "../server-utils/publicURLFetcher.js";
 // import { Review } from "./review_class.js";
 
@@ -208,8 +209,12 @@ export class Pg {
 
         const {rooms, minRent, averageRating, ...rest} = pg;
 
+        const pgCoordinates = [...rest.location.coordinates].reverse();
+
+        const linearDistance = haversineDistance([...coordinatesArray].reverse(),pgCoordinates)
+
         let res_data = {
-          pginfo: { ...rest, minRent: minRent, averageRating: averageRating },
+          pginfo: { ...rest, minRent: minRent, averageRating: averageRating, linearDistance: linearDistance },
           rooms: rooms,
         };
 
