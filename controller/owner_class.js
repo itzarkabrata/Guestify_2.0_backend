@@ -62,6 +62,7 @@ export class ownerClass {
           is_email_verified,
           user_id,
           image_url,
+          owner_name
         } = req.body;
 
         // Validate required ObjectIds
@@ -124,11 +125,14 @@ export class ownerClass {
         // Validate image URL
         if (typeof image_url !== "string")
           throw new TypeError("Image URL must be of type string");
+        if (typeof owner_name !== "string")
+          throw new TypeError("Owner Name must be of type string");
 
         const payload = {
           user_id,
           pg_id,
           image_url,
+          owner_name,
           country_code,
           phone_number,
           is_phone_verified: toBoolean(is_phone_verified),

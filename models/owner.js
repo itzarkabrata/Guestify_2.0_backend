@@ -15,6 +15,8 @@ const ContactDetailsSchema = new Schema(
 
     image_url: { type: String, trim: true },
 
+    owner_name: { type: String },
+
     country_code: { type: String, trim: true },
     phone_number: { type: String, trim: true },
     is_phone_verified: { type: Boolean, default: false },
