@@ -18,6 +18,7 @@ const router = Router();
 const upload = multer({ storage: storage });
 
 router.get("/getAllPg",Pg.getAllPg);
+router.get("/getPgForMap", Pg.getPg_forMap);
 router.get("/getPg/:id",Pg.getPg);
 
 // === Below routes need user authentication
