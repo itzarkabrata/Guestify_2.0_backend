@@ -36,9 +36,8 @@ export class Pg {
       );
       if (roomfile) {
         // Save file to cloud / disk and get URL
-        room.room_image_url = `${req.protocol}://${req.get("host")}/${
-          roomfile?.path
-        }`;
+        room.room_image_url = `${req.protocol}://${req.get("host")}/${roomfile?.path
+          }`;
       }
 
       rooms.push(room);
@@ -73,12 +72,12 @@ export class Pg {
           "Missing Query Paramteres : either kmradius or coordinates"
         );
       }
-      
+
       // Allowed Sort Fields
       const allowedSortFields = ["minRent", "averageRating"];
 
       let sortField = "minRent";
-      let sortDirection = 1; 
+      let sortDirection = 1;
       if (sort?.startsWith("-")) {
         sortField = sort.slice(1);
         sortDirection = -1;
@@ -144,15 +143,15 @@ export class Pg {
                 cond:
                   min !== null || max !== null
                     ? {
-                        $and: [
-                          ...(min !== null
-                            ? [{ $gte: ["$$room.room_rent", min] }]
-                            : []),
-                          ...(max !== null
-                            ? [{ $lte: ["$$room.room_rent", max] }]
-                            : []),
-                        ],
-                      }
+                      $and: [
+                        ...(min !== null
+                          ? [{ $gte: ["$$room.room_rent", min] }]
+                          : []),
+                        ...(max !== null
+                          ? [{ $lte: ["$$room.room_rent", max] }]
+                          : []),
+                      ],
+                    }
                     : { $gt: ["$$room.room_rent", -1] }, // always true fallback
               },
             },
@@ -207,7 +206,7 @@ export class Pg {
 
       for (const pg of pgList) {
 
-        const {rooms, minRent, averageRating, ...rest} = pg;
+        const { rooms, minRent, averageRating, ...rest } = pg;
 
         const pgCoordinates = [...rest.location.coordinates].reverse();
 
@@ -260,7 +259,7 @@ export class Pg {
       const allowedSortFields = ["minRent", "averageRating"];
 
       let sortField = "minRent";
-      let sortDirection = 1; 
+      let sortDirection = 1;
       if (sort?.startsWith("-")) {
         sortField = sort.slice(1);
         sortDirection = -1;
@@ -326,15 +325,15 @@ export class Pg {
                 cond:
                   min !== null || max !== null
                     ? {
-                        $and: [
-                          ...(min !== null
-                            ? [{ $gte: ["$$room.room_rent", min] }]
-                            : []),
-                          ...(max !== null
-                            ? [{ $lte: ["$$room.room_rent", max] }]
-                            : []),
-                        ],
-                      }
+                      $and: [
+                        ...(min !== null
+                          ? [{ $gte: ["$$room.room_rent", min] }]
+                          : []),
+                        ...(max !== null
+                          ? [{ $lte: ["$$room.room_rent", max] }]
+                          : []),
+                      ],
+                    }
                     : { $gt: ["$$room.room_rent", -1] }, // always true fallback
               },
             },
@@ -395,7 +394,7 @@ export class Pg {
           location: pg.location,
           // pg_image_url: pg.pg_image_url,
         })),
-      });      
+      });
 
     } catch (error) {
       console.error(error.message);
@@ -434,6 +433,98 @@ export class Pg {
       });
     }
   }
+
+  static async getPgNearMe(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { coordinates } = req.query;
+
+      if (!coordinates) {
+        throw new Error("Missing Query Parameter: coordinates (lat,lng)");
+      }
+
+      const kmradi = 10;
+      const radiusInRadians = kmradi / 6378.1;
+      const coordinatesArray = coordinates?.split(",").map(Number);
+
+      // === Pipeline ===
+      const pipeline = [
+        {
+          $match: {
+            location: {
+              $geoWithin: {
+                $centerSphere: [coordinatesArray, radiusInRadians],
+              },
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "roominfos",
+            localField: "_id",
+            foreignField: "pg_id",
+            as: "rooms",
+          },
+        },
+        {
+          $match: {
+            "rooms.0": { $exists: true },
+          },
+        },
+        {
+          $addFields: {
+            minRent: { $min: "$rooms.room_rent" },
+          },
+        },
+        {
+          $lookup: {
+            from: "reviews",
+            localField: "_id",
+            foreignField: "pg_id",
+            as: "reviews",
+          },
+        },
+        {
+          $addFields: {
+            averageRating: { $avg: "$reviews.rating" },
+          },
+        },
+        {
+          $project: {
+            reviews: 0,
+            rooms: 0, // don’t send full rooms in near-me
+          },
+        },
+        {
+          $sort: { minRent: 1 }, // default sort = cheapest first
+        },
+      ];
+
+      const pgList = await PgInfo_Model.aggregate(pipeline);
+
+      res.status(200).json({
+        message: "Nearby PGs fetched successfully",
+        count: pgList.length,
+        data: pgList.map(pg => ({
+          _id: pg._id,
+          pg_name: pg.pg_name,
+          address: pg.address,
+          location: pg.location,
+          // pg_image_url: pg.pg_image_url,
+        })),
+      });
+    } catch (error) {
+      console.error(error.message);
+      res.status(500).json({
+        message: "Failed to fetch nearby PGs",
+        error: error.message,
+      });
+    }
+  }
+
 
   static async getPg_RoomDetails(req, res) {
     try {
@@ -612,7 +703,7 @@ export class Pg {
         throw new TypeError("Invalid PG ID format");
       }
 
-      if(!req.body.contact_details) {
+      if (!req.body.contact_details) {
         throw new Error("Contact details are required");
       }
 
@@ -717,8 +808,8 @@ export class Pg {
 
       const statusCode =
         error instanceof TypeError ||
-        error instanceof EvalError ||
-        error instanceof ReferenceError
+          error instanceof EvalError ||
+          error instanceof ReferenceError
           ? 400
           : 500;
 
@@ -1008,8 +1099,8 @@ export class Pg {
 
       const statusCode =
         error instanceof TypeError ||
-        error instanceof EvalError ||
-        error instanceof ReferenceError
+          error instanceof EvalError ||
+          error instanceof ReferenceError
           ? 400
           : 500;
 
@@ -1077,8 +1168,8 @@ export class Pg {
 
       const statusCode =
         error instanceof TypeError ||
-        error instanceof EvalError ||
-        error instanceof ReferenceError
+          error instanceof EvalError ||
+          error instanceof ReferenceError
           ? 400
           : 500;
 
