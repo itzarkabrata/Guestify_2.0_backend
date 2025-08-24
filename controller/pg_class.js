@@ -441,6 +441,7 @@ export class Pg {
       }
 
       const { coordinates } = req.query;
+      console.log(coordinates);
 
       if (!coordinates) {
         throw new Error("Missing Query Parameter: coordinates (lat,lng)");
@@ -461,46 +462,46 @@ export class Pg {
             },
           },
         },
-        {
-          $lookup: {
-            from: "roominfos",
-            localField: "_id",
-            foreignField: "pg_id",
-            as: "rooms",
-          },
-        },
-        {
-          $match: {
-            "rooms.0": { $exists: true },
-          },
-        },
-        {
-          $addFields: {
-            minRent: { $min: "$rooms.room_rent" },
-          },
-        },
-        {
-          $lookup: {
-            from: "reviews",
-            localField: "_id",
-            foreignField: "pg_id",
-            as: "reviews",
-          },
-        },
-        {
-          $addFields: {
-            averageRating: { $avg: "$reviews.rating" },
-          },
-        },
-        {
-          $project: {
-            reviews: 0,
-            rooms: 0, // don’t send full rooms in near-me
-          },
-        },
-        {
-          $sort: { minRent: 1 }, // default sort = cheapest first
-        },
+        // {
+        //   $lookup: {
+        //     from: "roominfos",
+        //     localField: "_id",
+        //     foreignField: "pg_id",
+        //     as: "rooms",
+        //   },
+        // },
+        // {
+        //   $match: {
+        //     "rooms.0": { $exists: true },
+        //   },
+        // },
+        // {
+        //   $addFields: {
+        //     minRent: { $min: "$rooms.room_rent" },
+        //   },
+        // },
+        // {
+        //   $lookup: {
+        //     from: "reviews",
+        //     localField: "_id",
+        //     foreignField: "pg_id",
+        //     as: "reviews",
+        //   },
+        // },
+        // {
+        //   $addFields: {
+        //     averageRating: { $avg: "$reviews.rating" },
+        //   },
+        // },
+        // {
+        //   $project: {
+        //     reviews: 0,
+        //     rooms: 0, // don’t send full rooms in near-me
+        //   },
+        // },
+        // {
+        //   $sort: { minRent: 1 }, // default sort = cheapest first
+        // },
       ];
 
       const pgList = await PgInfo_Model.aggregate(pipeline);
