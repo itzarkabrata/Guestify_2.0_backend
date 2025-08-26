@@ -546,7 +546,7 @@ export class Pg {
       const pipeline = [
         {
           $match: {
-            _id: { $ne: new mongoose.Types.ObjectId(id) }, // Exclude the current PG
+            _id: { $ne:mongoose.Types.ObjectId.createFromHexString(id) }, // Exclude the current PG
             location: {
               $geoWithin: {
                 $centerSphere: [coordinatesArray, radiusInRadians],
