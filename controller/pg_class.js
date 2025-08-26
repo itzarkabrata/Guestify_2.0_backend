@@ -441,7 +441,6 @@ export class Pg {
       }
 
       const { coordinates } = req.query;
-      console.log(coordinates);
 
       if (!coordinates) {
         throw new Error("Missing Query Parameter: coordinates (lat,lng)");
@@ -526,6 +525,70 @@ export class Pg {
     }
   }
 
+  static async getPgNearPg(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { coordinates } = req.query;
+      const { id } = req.params;
+
+      if (!coordinates) {
+        throw new Error("Missing Query Parameter: coordinates (lat,lng)");
+      }
+
+      const kmradi = 10;
+      const radiusInRadians = kmradi / 6378.1;
+      const coordinatesArray = coordinates?.split(",").map(Number);
+
+      // === Pipeline ===
+      const pipeline = [
+        {
+          $match: {
+            _id: { $ne:mongoose.Types.ObjectId.createFromHexString(id) }, // Exclude the current PG
+            location: {
+              $geoWithin: {
+                $centerSphere: [coordinatesArray, radiusInRadians],
+              },
+            },
+          },
+        },
+      ];
+
+      const pgList = await PgInfo_Model.aggregate(pipeline);
+
+      const final_response = [];
+
+      for (const pg of pgList) {
+
+        const { rooms, minRent, averageRating, ...rest } = pg;
+
+        const pgCoordinates = [...rest.location.coordinates].reverse();
+
+        const linearDistance = haversineDistance([...coordinatesArray].reverse(),pgCoordinates)
+
+        let res_data = {
+          pginfo: { ...rest, minRent: minRent, averageRating: averageRating, linearDistance: linearDistance },
+          rooms: rooms,
+        };
+
+        final_response?.push(res_data);
+      }
+
+      res.status(200).json({
+        message: "PGs fetched successfully",
+        count: final_response.length,
+        data: final_response,
+      });
+    } catch (error) {
+      console.error(error.message);
+      res.status(500).json({
+        message: "Failed to fetch nearby PGs",
+        error: error.message,
+      });
+    }
+  }
 
   static async getPg_RoomDetails(req, res) {
     try {
