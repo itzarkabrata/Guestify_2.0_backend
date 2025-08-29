@@ -6,14 +6,11 @@ export class College {
   static async getAllColleges(req, res) {
     try {
       if (await Database.isConnected()) {
-        const {q} = req.query;
-
-        if(!q){
-          throw new Error("Query Parameter is required");
-        }
+        const {q="", popular} = req.query;
 
         const college_list = await College_Model.find({
-          college_name: { $regex: q, $options: "i" }  
+          college_name: { $regex: q, $options: "i" },
+          ...(popular && { popular: true })
         });
       
 
