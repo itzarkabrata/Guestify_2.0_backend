@@ -4,6 +4,9 @@ import { User_Model } from "../models/users.js";
 import { EventObj } from "../lib/event.config.js";
 import { AMQP } from "../lib/amqp.connect.js";
 import jwt from "jsonwebtoken";
+import { PgInfo_Model } from "../models/pginfo.js";
+import { RoomInfo_Model } from "../models/roominfo.js";
+import { Review_Model } from "../models/reviews.js";
 
 export class UserProfile {
   static async getProfile(req, res) {
@@ -126,7 +129,6 @@ export class UserProfile {
         // console.log(updated_user);
 
         if (res_ack.acknowledged) {
-
           const updated_user = await User_Model.find({ _id: userid });
 
           const token_obj = {
@@ -159,8 +161,8 @@ export class UserProfile {
           res.status(200).json({
             message: "User details updated successfully",
             data: {
-              info : updated_user[0],
-              updated_token : token
+              info: updated_user[0],
+              updated_token: token,
             },
           });
         } else {
@@ -237,6 +239,111 @@ export class UserProfile {
       } else {
         res.status(500).json({
           message: "User is not deleted successfully",
+          error: error.message,
+        });
+      }
+    }
+  }
+
+  static async getStats(req, res) {
+    try {
+      if (await Database.isConnected()) {
+        const { uid } = req.params;
+        const { userid } = req.body;
+
+        if (!userid) {
+          throw new TypeError(
+            "Authorization failed : try to call get api without token"
+          );
+        }
+
+        // Ensure the user exists
+        const user = await User_Model.findById(uid);
+
+        if (!user) throw new Error("User not found");
+
+        // Count PGs enlisted by this user
+        const pgs = await PgInfo_Model.find(
+          { user_id: uid },
+          { _id: 1, createdAt: 1 }
+        );
+        const pgIds = pgs.map((pg) => pg._id);
+
+        const totalPGs = pgIds.length;
+
+        // Count Rooms enlisted by this user's PGs
+        const totalRooms = await RoomInfo_Model.countDocuments({
+          pg_id: { $in: pgIds },
+        });
+
+        // Count Reviews on this user's PGs
+        const totalReviews = await Review_Model.countDocuments({
+          pg_id: { $in: pgIds },
+        });
+
+        // Frequency of PG enlistment by month
+        const pgsByMonth = await PgInfo_Model.aggregate([
+          {
+            $match: {
+              user_id: user._id,
+              createdAt: { $exists: true, $ne: null },
+            },
+          },
+          {
+            $group: {
+              _id: {
+                date: {
+                  $dateToString: { format: "%Y-%m", date: "$createdAt" },
+                },
+                monthName: {
+                  $dateToString: { format: "%B", date: "$createdAt" },
+                },
+              },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: 1 } },
+          {
+            $project: {
+              _id: 0,
+              date: "$_id.date",
+              month: "$_id.monthName",
+              count: 1,
+            },
+          },
+        ]);
+
+        res.status(200).json({
+          message: "User stats fetched successfully",
+          data: {
+            user_id: uid,
+            totalPGs: totalPGs,
+            totalRooms: totalRooms,
+            totalReviews: totalReviews,
+            pgsByMonth: pgsByMonth,
+            avgRoomsPerPG: totalPGs
+              ? parseFloat((totalRooms / totalPGs).toFixed(2))
+              : 0,
+          },
+        });
+      } else {
+        throw new Error("Database server is not connected properly");
+      }
+    } catch (error) {
+      console.log(error.message);
+
+      if (
+        error instanceof ReferenceError ||
+        error instanceof TypeError ||
+        error instanceof mongoose.MongooseError
+      ) {
+        res.status(400).json({
+          message: "User stats not fetched successfully",
+          error: error.message,
+        });
+      } else {
+        res.status(400).json({
+          message: "User stats not fetched successfully",
           error: error.message,
         });
       }
