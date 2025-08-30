@@ -300,6 +300,12 @@ export class UserProfile {
                 },
               },
               count: { $sum: 1 },
+              pgs: {
+                $push: {
+                  name: "$pg_name",
+                  imageUrl: "$pg_image_url",
+                },
+              },
             },
           },
           { $sort: { _id: 1 } },
@@ -309,6 +315,7 @@ export class UserProfile {
               date: "$_id.date",
               month: "$_id.monthName",
               count: 1,
+              pgs: 1,
             },
           },
         ]);
