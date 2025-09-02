@@ -570,7 +570,7 @@ export class Pg {
 
         let res_data = {
           pginfo: { ...rest, minRent: minRent, averageRating: averageRating, linearDistance: linearDistance },
-          rooms: rooms,
+          rooms: rooms, // currently not fetched but can be fetched if needed
         };
 
         final_response?.push(res_data);
@@ -634,8 +634,10 @@ export class Pg {
 
       const rooms = await Room.GetRooms(pg?._id);
 
+      const minRent = rooms.length > 0 ? Math.min(...rooms.map(r => r.room_rent)) : null;
+
       const res_data = {
-        pginfo: pg,
+        pginfo: pg ? { ...pg._doc, minRent: minRent } : null,
         rooms: rooms,
       };
 
