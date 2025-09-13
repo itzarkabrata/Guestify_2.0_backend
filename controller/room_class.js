@@ -177,13 +177,8 @@ export class Room {
         "Deposit duration must be 'monthly', 'quarterly', 'halfyearly', or 'yearly'"
       );
     
-    if (aminities){
-      if(Array.isArray(aminities.split(','))){
-        room.aminities = aminities.split(',').map(item => item.trim());
-      }
-      else{
-        throw new TypeError("Aminities must be an array of strings");
-      }
+    if (aminities && !Array.isArray(aminities.split(','))){
+      throw new TypeError("Aminities must be an array of strings");
     }
 
     const updateData = {
@@ -193,7 +188,7 @@ export class Room {
       ac_available,
       attached_bathroom,
       deposit_duration,
-      aminities,
+      aminities: aminities.split(',').map(item => item.trim()),
       room_image_url: room.room_image_url,
       room_image_id: room.room_image_id
     };
