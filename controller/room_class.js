@@ -212,6 +212,7 @@ export class Room {
   static async GetRooms(pg_id) {
     return RoomInfo_Model.find({ pg_id: pg_id });
   }
+  
 
   static async DeleteRoom(req, res) {
     try {
