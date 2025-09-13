@@ -41,7 +41,7 @@ const roomInfoSchema = new Schema(
       required: [true, "Deposit duration is required"],
       enum: ["monthly", "quarterly", "halfyearly", "yearly"],
     },
-    room_aminities: {
+    aminities: {
       type: [String],
       default: [],
       validate: {
