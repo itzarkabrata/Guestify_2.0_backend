@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import { PgInfo_Model } from "../models/pginfo.js";
 import { RoomInfo_Model } from "../models/roominfo.js";
 import { Review_Model } from "../models/reviews.js";
+import { redisClient } from "../lib/redis.config.js";
 
 export class UserProfile {
   static async getProfile(req, res) {
@@ -257,6 +258,16 @@ export class UserProfile {
           );
         }
 
+        // Check if the data already in redis
+        const cachedData = await redisClient.get(`user-stats-${uid}`);
+        if (cachedData) {
+          return res.status(200).json({
+            message: "PG fetched successfully",
+            count: JSON.parse(cachedData).length,
+            data: JSON.parse(cachedData),
+          });
+        }
+
         // Ensure the user exists
         const user = await User_Model.findById(uid);
 
@@ -320,18 +331,28 @@ export class UserProfile {
           },
         ]);
 
+        const finalResponse = {
+          user_id: uid,
+          totalPGs: totalPGs,
+          totalRooms: totalRooms,
+          totalReviews: totalReviews,
+          pgsByMonth: pgsByMonth,
+          avgRoomsPerPG: totalPGs
+            ? parseFloat((totalRooms / totalPGs).toFixed(2))
+            : 0,
+        };
+
+        // Store the final Response to redis for 5 minutes
+        await redisClient.set(
+          `user-stats-${uid}`,
+          JSON.stringify(finalResponse),
+          "EX",
+          300
+        );
+
         res.status(200).json({
           message: "User stats fetched successfully",
-          data: {
-            user_id: uid,
-            totalPGs: totalPGs,
-            totalRooms: totalRooms,
-            totalReviews: totalReviews,
-            pgsByMonth: pgsByMonth,
-            avgRoomsPerPG: totalPGs
-              ? parseFloat((totalRooms / totalPGs).toFixed(2))
-              : 0,
-          },
+          data: finalResponse,
         });
       } else {
         throw new Error("Database server is not connected properly");

@@ -8,6 +8,7 @@ import { RoomInfo_Model } from "../models/roominfo.js";
 import cloudinary from "../lib/assetstorage_config.js";
 import { ownerClass } from "./owner_class.js";
 import { haversineDistance } from "../server-utils/publicURLFetcher.js";
+import { redisClient } from "../lib/redis.config.js";
 // import { filterPGsAndRoomsByRent } from "../server-utils/publicURLFetcher.js";
 // import { Review } from "./review_class.js";
 
@@ -538,6 +539,16 @@ export class Pg {
         throw new Error("Missing Query Parameter: coordinates (lat,lng)");
       }
 
+      // Check if the data already in redis
+      const cachedData = await redisClient.get(`pg-list-nearpg-${id}`);
+      if (cachedData) {
+        return res.status(200).json({
+          message: "PG fetched successfully",
+          count: JSON.parse(cachedData).length,
+          data: JSON.parse(cachedData),
+        });
+      }
+
       const kmradi = 10;
       const radiusInRadians = kmradi / 6378.1;
       const coordinatesArray = coordinates?.split(",").map(Number);
@@ -575,6 +586,9 @@ export class Pg {
 
         final_response?.push(res_data);
       }
+
+      // Store the final Response to redis for 5 minutes
+      await redisClient.set(`pg-list-nearpg-${id}`, JSON.stringify(final_response), "EX", 300);
 
       res.status(200).json({
         message: "PGs fetched successfully",
@@ -667,6 +681,16 @@ export class Pg {
         throw new TypeError("Invalid User ID format");
       }
 
+      // Check if the data already in redis
+      const cachedData = await redisClient.get(`pg-list-user-${userid}`);
+      if (cachedData) {
+        return res.status(200).json({
+          message: "PG fetched successfully",
+          count: JSON.parse(cachedData).length,
+          data: JSON.parse(cachedData),
+        });
+      }
+
       const pgList = await PgInfo_Model.find({ user_id: userid });
 
       const final_response = [];
@@ -683,6 +707,9 @@ export class Pg {
 
         final_response?.push(res_data);
       }
+
+      // Store the final Response to redis for 3 minutes
+      await redisClient.set(`pg-list-user-${userid}`, JSON.stringify(final_response), "EX", 180);
 
       res.status(200).json({
         message: "PG fetched successfully",
@@ -725,6 +752,9 @@ export class Pg {
         pincode,
         street_name,
         wifi_available,
+        wifi_speed,
+        additional_wifi_charges,
+        charge_duration,
         food_available,
         rules,
         pg_image_url,
@@ -764,6 +794,12 @@ export class Pg {
         throw new TypeError("PG Type must be string");
       if (!/^\d{6}$/.test(pincode.toString()))
         throw new EvalError("Pincode must be 6 digits");
+      if(wifi_speed && typeof wifi_speed!=="string")
+        throw new TypeError("Wifi Speed Must be of type string");
+      if(additional_wifi_charges && typeof Number(additional_wifi_charges)!=="number")
+        throw new TypeError("Wifi Charges Must be of type Number");
+      if(charge_duration && typeof charge_duration!=="string")
+        throw new TypeError("Wifi Charge Duration Must be of type string");
 
       if (!mongoose.Types.ObjectId.isValid(user_id)) {
         throw new TypeError("Invalid PG ID format");
@@ -829,6 +865,9 @@ export class Pg {
         address,
         street_name,
         wifi_available,
+        wifi_speed,
+        additional_wifi_charges,
+        charge_duration,
         food_available,
         rules,
         pg_image_url,
@@ -991,6 +1030,9 @@ export class Pg {
         pincode,
         street_name,
         wifi_available,
+        wifi_speed,
+        additional_wifi_charges,
+        charge_duration,
         food_available,
         rules,
         pg_image_url,
@@ -1035,6 +1077,12 @@ export class Pg {
       if (!/^\d{6}$/.test(pincode.toString())) {
         throw new EvalError("Pincode must be exactly 6 digits");
       }
+      if(wifi_speed && typeof wifi_speed!=="string")
+        throw new TypeError("Wifi Speed Must be of type string");
+      if(additional_wifi_charges && typeof Number(additional_wifi_charges)!=="number")
+        throw new TypeError("Wifi Charges Must be of type Number");
+      if(charge_duration && typeof charge_duration!=="string")
+        throw new TypeError("Wifi Charge Duration Must be of type string");
 
       //computing the address
       const address = `${house_no}, ${street_name}, ${district?.replace(
@@ -1072,6 +1120,9 @@ export class Pg {
         pincode,
         street_name,
         wifi_available,
+        wifi_speed,
+        additional_wifi_charges,
+        charge_duration,
         food_available,
         rules,
         pg_image_url,
