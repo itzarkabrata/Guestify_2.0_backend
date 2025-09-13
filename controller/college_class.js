@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { Database } from "../lib/connect.js";
 import { College_Model } from "../models/colleges.js";
+import { redisClient } from "../lib/redis.config.js";
 
 export class College {
   static async getAllColleges(req, res) {
@@ -48,12 +49,24 @@ export class College {
       if (!mongoose.isValidObjectId(id)) {
         return res.status(400).json({ message: "Invalid college ID format" });
       }
+
+      // Check if the data already in redis
+      const cachedData = await redisClient.get(`college-${id}`);
+      if (cachedData) {
+        return res.status(200).json({
+          message: "PG fetched successfully",
+          count: JSON.parse(cachedData).length,
+          data: JSON.parse(cachedData),
+        });
+      }
   
       const college = await College_Model.findById(id);
   
       if (!college) {
         return res.status(404).json({ message: "College not found" });
       }
+
+      await redisClient.set(`college-${id}`, JSON.stringify(college), "EX", 300);
   
       res.status(200).json({
         message: "College fetched successfully",

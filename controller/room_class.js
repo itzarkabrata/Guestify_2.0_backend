@@ -36,6 +36,7 @@ export class Room {
       ac_available,
       attached_bathroom,
       deposit_duration,
+      aminities,
       room_image_url,
       room_image_id,
       pg_id,
@@ -76,6 +77,9 @@ export class Room {
         "Deposit duration must be 'monthly', 'quarterly', 'halfyearly', or 'yearly'"
       );
 
+    if (aminities && !Array.isArray(aminities))
+      throw new TypeError("Aminities must be an array of strings");
+
     if (!mongoose.Types.ObjectId.isValid(pg_id))
       throw new TypeError("PG ID must be a valid ObjectId format");
 
@@ -95,6 +99,7 @@ export class Room {
       ac_available,
       attached_bathroom,
       deposit_duration,
+      aminities,
     } = room;
     // validate each room entry
 
@@ -165,6 +170,9 @@ export class Room {
       throw new TypeError(
         "Deposit duration must be 'monthly', 'quarterly', 'halfyearly', or 'yearly'"
       );
+    
+    if (aminities && !Array.isArray(aminities))
+      throw new TypeError("Aminities must be an array of strings");
 
     const updateData = {
       pg_id,
@@ -173,6 +181,7 @@ export class Room {
       ac_available,
       attached_bathroom,
       deposit_duration,
+      aminities,
       room_image_url: room.room_image_url,
       room_image_id: room.room_image_id
     };
