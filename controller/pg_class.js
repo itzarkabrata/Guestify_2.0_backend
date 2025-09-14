@@ -12,6 +12,32 @@ import { redisClient } from "../lib/redis.config.js";
 // import { filterPGsAndRoomsByRent } from "../server-utils/publicURLFetcher.js";
 // import { Review } from "./review_class.js";
 
+export const pgImageLookupStage = [
+  {
+    $lookup: {
+      from: "images",
+      localField: "_id",
+      foreignField: "source_id",
+      as: "images",
+      pipeline: [
+        {
+          $match: {
+            source: "PG",
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            image_url: 1,
+            public_id: 1,
+            source_id: 1,
+          },
+        },
+      ],
+    },
+  },
+];
+
 export class Pg {
   static async parseRoomArray(req) {
     const rooms = [];
@@ -190,6 +216,7 @@ export class Pg {
             reviews: 0
           },
         },
+        ...pgImageLookupStage,
       ];
 
       if (allowedSortFields?.includes(sortField)) {
@@ -372,6 +399,7 @@ export class Pg {
             reviews: 0
           },
         },
+        ...pgImageLookupStage,
       ];
 
       if (allowedSortFields?.includes(sortField)) {
@@ -407,33 +435,74 @@ export class Pg {
     }
   }
 
+  // static async getPg_BasicDetails(req, res) {
+  //   try {
+  //     if (!(await Database.isConnected())) {
+  //       throw new Error("Database server is not connected properly");
+  //     }
+
+  //     const { id } = req.params;
+
+  //     if (!mongoose.Types.ObjectId.isValid(id)) {
+  //       throw new TypeError("Invalid PG ID format");
+  //     }
+
+  //     const pg_basic_details = await PgInfo_Model.findById(id);
+
+  //     res.status(200).json({
+  //       message: "PG Basic Details fetched successfully",
+  //       data: pg_basic_details,
+  //     });
+  //   } catch (error) {
+  //     console.error(error.message);
+
+  //     res.status(500).json({
+  //       message: "Failed to fetch PG Basic Details",
+  //       error: error.message,
+  //     });
+  //   }
+  // }
+
   static async getPg_BasicDetails(req, res) {
-    try {
-      if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
-      }
+  try {
+    if (!(await Database.isConnected())) {
+      throw new Error("Database server is not connected properly");
+    }
 
-      const { id } = req.params;
+    const { id } = req.params;
 
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new TypeError("Invalid PG ID format");
-      }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new TypeError("Invalid PG ID format");
+    }
 
-      const pg_basic_details = await PgInfo_Model.findById(id);
+    const pipeline = [
+      {
+        $match: { _id: new mongoose.Types.ObjectId(id) },
+      },
+      ...pgImageLookupStage,
+    ];
 
-      res.status(200).json({
-        message: "PG Basic Details fetched successfully",
-        data: pg_basic_details,
-      });
-    } catch (error) {
-      console.error(error.message);
+    const [pg_basic_details] = await PgInfo_Model.aggregate(pipeline);
 
-      res.status(500).json({
-        message: "Failed to fetch PG Basic Details",
-        error: error.message,
+    if (!pg_basic_details) {
+      return res.status(404).json({
+        message: "PG not found",
       });
     }
+
+    res.status(200).json({
+      message: "PG Basic Details fetched successfully",
+      data: pg_basic_details,
+    });
+  } catch (error) {
+    console.error(error.message);
+
+    res.status(500).json({
+      message: "Failed to fetch PG Basic Details",
+      error: error.message,
+    });
   }
+}
 
   static async getPgNearMe(req, res) {
     try {
@@ -565,6 +634,7 @@ export class Pg {
             },
           },
         },
+        ...pgImageLookupStage,
       ];
 
       const pgList = await PgInfo_Model.aggregate(pipeline);
@@ -735,11 +805,11 @@ export class Pg {
         throw new Error("Database server is not connected properly");
       }
 
-      const pgFile = req.files.find((f) => f.fieldname === "pg_image_url");
-      if (pgFile) {
-        req.body.pg_image_url = pgFile?.path; // storing the url of the image
-        req.body.pg_image_id = pgFile?.filename; // storing the public id of the image
-      }
+      // const pgFile = req.files.find((f) => f.fieldname === "pg_image_url");
+      // if (pgFile) {
+      //   req.body.pg_image_url = pgFile?.path; // storing the url of the image
+      //   req.body.pg_image_id = pgFile?.filename; // storing the public id of the image
+      // }
 
       // console.log(req.files,"Files Object");
       // console.log(pgFile,"PG File");
@@ -757,8 +827,8 @@ export class Pg {
         charge_duration,
         food_available,
         rules,
-        pg_image_url,
-        pg_image_id,
+        // pg_image_url,
+        // pg_image_id,
         pg_type,
       } = req.body;
 
@@ -786,10 +856,10 @@ export class Pg {
         throw new TypeError("Food must be yes/no");
       if (typeof rules !== "string")
         throw new TypeError("Rules must be string");
-      if (typeof pg_image_url !== "string")
-        throw new TypeError("PG image URL must be string");
-      if (typeof pg_image_id !== "string")
-        throw new TypeError("PG image ID must be string");
+      // if (typeof pg_image_url !== "string")
+      //   throw new TypeError("PG image URL must be string");
+      // if (typeof pg_image_id !== "string")
+      //   throw new TypeError("PG image ID must be string");
       if (typeof pg_type !== "string")
         throw new TypeError("PG Type must be string");
       if (!/^\d{6}$/.test(pincode.toString()))
@@ -870,8 +940,8 @@ export class Pg {
         charge_duration,
         food_available,
         rules,
-        pg_image_url,
-        pg_image_id,
+        // pg_image_url,
+        // pg_image_id,
         pg_type,
         location: location,
       });
@@ -940,18 +1010,18 @@ export class Pg {
       }
 
       // extract and delete old image if exists
-      const prev_img = await PgInfo_Model.findOne(
-        { _id: id },
-        { pg_image_url: 1, pg_image_id: 1 }
-      );
+      // const prev_img = await PgInfo_Model.findOne(
+      //   { _id: id },
+      //   { pg_image_url: 1, pg_image_id: 1 }
+      // );
 
-      if (prev_img?.pg_image_url !== null && prev_img?.pg_image_url !== "") {
-        try {
-          await cloudinary.uploader.destroy(prev_img?.pg_image_id);
-        } catch (error) {
-          throw new Error(`Error while Deleting Image : ${error?.message}`);
-        }
-      }
+      // if (prev_img?.pg_image_url !== null && prev_img?.pg_image_url !== "") {
+      //   try {
+      //     await cloudinary.uploader.destroy(prev_img?.pg_image_id);
+      //   } catch (error) {
+      //     throw new Error(`Error while Deleting Image : ${error?.message}`);
+      //   }
+      // }
 
       const deletedPg = await PgInfo_Model.findByIdAndDelete(id);
 
@@ -1002,25 +1072,25 @@ export class Pg {
       }
 
       // extract and delete old image if exists
-      const prev_img = await PgInfo_Model.findOne(
-        { _id: id },
-        { pg_image_url: 1, pg_image_id: 1 }
-      );
+      // const prev_img = await PgInfo_Model.findOne(
+      //   { _id: id },
+      //   { pg_image_url: 1, pg_image_id: 1 }
+      // );
 
-      if (prev_img?.pg_image_url !== null && prev_img?.pg_image_url !== "") {
-        try {
-          await cloudinary.uploader.destroy(prev_img?.pg_image_id);
-        } catch (error) {
-          throw new Error(`Error while Deleting Image : ${error?.message}`);
-        }
-      }
+      // if (prev_img?.pg_image_url !== null && prev_img?.pg_image_url !== "") {
+      //   try {
+      //     await cloudinary.uploader.destroy(prev_img?.pg_image_id);
+      //   } catch (error) {
+      //     throw new Error(`Error while Deleting Image : ${error?.message}`);
+      //   }
+      // }
 
       // upload new image
-      const pgFile = req.files.find((f) => f.fieldname === "pg_image_url");
-      if (pgFile) {
-        req.body.pg_image_url = pgFile?.path; // storing the url of the image
-        req.body.pg_image_id = pgFile?.filename; // storing the public id of the image
-      }
+      // const pgFile = req.files.find((f) => f.fieldname === "pg_image_url");
+      // if (pgFile) {
+      //   req.body.pg_image_url = pgFile?.path; // storing the url of the image
+      //   req.body.pg_image_id = pgFile?.filename; // storing the public id of the image
+      // }
 
       const {
         pg_name,
@@ -1035,8 +1105,8 @@ export class Pg {
         charge_duration,
         food_available,
         rules,
-        pg_image_url,
-        pg_image_id,
+        // pg_image_url,
+        // pg_image_id,
         pg_type,
       } = req.body;
 
@@ -1064,10 +1134,10 @@ export class Pg {
         throw new TypeError("Food must be yes/no");
       if (typeof rules !== "string")
         throw new TypeError("Rules must be string");
-      if (typeof pg_image_url !== "string")
-        throw new TypeError("PG image URL must be string");
-      if (typeof pg_image_id !== "string")
-        throw new TypeError("PG image ID must be string");
+      // if (typeof pg_image_url !== "string")
+      //   throw new TypeError("PG image URL must be string");
+      // if (typeof pg_image_id !== "string")
+      //   throw new TypeError("PG image ID must be string");
       if (typeof pg_type !== "string")
         throw new TypeError("PG Type must be string");
       if (!/^\d{6}$/.test(pincode.toString()))
@@ -1125,8 +1195,8 @@ export class Pg {
         charge_duration,
         food_available,
         rules,
-        pg_image_url,
-        pg_image_id,
+        // pg_image_url,
+        // pg_image_id,
         pg_type,
         address,
         location: location,
