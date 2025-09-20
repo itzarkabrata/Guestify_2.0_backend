@@ -3,6 +3,8 @@ import { RoomInfo_Model } from "../models/roominfo.js";
 import mongoose from "mongoose";
 import { getPublicIdFromUrl } from "../server-utils/publicURLFetcher.js";
 import cloudinary from "../lib/assetstorage_config.js";
+import { EventObj } from "../lib/event.config.js";
+import { AMQP } from "../lib/amqp.connect.js";
 
 export class Room {
   static async CreateRoom(room, req, index) {
@@ -232,15 +234,20 @@ export class Room {
         { room_image_url: 1, room_image_id: 1 }
       );
 
-      if (prev_img?.room_image_url !== null && prev_img?.room_image_url !== "") {
+      if (
+        prev_img?.room_image_url !== null &&
+        prev_img?.room_image_url !== ""
+      ) {
         try {
           await cloudinary.uploader.destroy(prev_img?.room_image_id);
         } catch (error) {
-          throw new Error(`Error while Deleting Room image : ${error?.message}`)
+          throw new Error(
+            `Error while Deleting Room image : ${error?.message}`
+          );
         }
       }
 
-      const deleteRoom = await RoomInfo_Model.deleteOne({_id:roomid});
+      const deleteRoom = await RoomInfo_Model.deleteOne({ _id: roomid });
 
       // console.log(deleteRoom)
 
