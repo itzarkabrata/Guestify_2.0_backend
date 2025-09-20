@@ -223,6 +223,11 @@ export class Room {
       }
 
       const { roomid } = req.params;
+      const user_id  = req.user.id;
+
+      if (!user_id) {
+        throw new Error("User ID not found in request");
+      }
 
       if (!mongoose.Types.ObjectId.isValid(roomid)) {
         throw new TypeError("Invalid Room ID format");
@@ -254,6 +259,21 @@ export class Room {
       if (!deleteRoom?.acknowledged) {
         throw new Error("Rooms under the PG not deleted");
       }
+
+      //creating event
+      const msg = JSON.stringify(
+        EventObj.createEventObj(
+          "transactional",
+          "Room Deleted from PG",
+          false,
+          "success",
+          user_id.toString(),
+          req.headers["devicetoken"]
+        )
+      );
+
+      //publishing to amqp server
+      AMQP.publishMsg("noti-queue", msg);
 
       res.status(200).json({
         message: "Room Deleted successfully",
