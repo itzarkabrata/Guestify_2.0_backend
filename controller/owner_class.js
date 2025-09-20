@@ -2,6 +2,9 @@ import mongoose from "mongoose";
 import { Database } from "../lib/connect.js";
 import { ContactDetails_Model } from "../models/owner.js";
 import { toBoolean } from "../server-utils/publicURLFetcher.js";
+import { EventObj } from "../lib/event.config.js";
+import { AMQP } from "../lib/amqp.connect.js";
+import { PgInfo_Model } from "../models/pginfo.js";
 
 export class ownerClass {
   static async getOwnerContactDetails(req, res) {
@@ -62,7 +65,7 @@ export class ownerClass {
           is_email_verified,
           user_id,
           image_url,
-          owner_name
+          owner_name,
         } = req.body;
 
         // Validate required ObjectIds
@@ -71,6 +74,12 @@ export class ownerClass {
 
         if (!mongoose.Types.ObjectId.isValid(pg_id))
           throw new TypeError("PG ID must be a valid ObjectId format");
+
+        const existingPg = await PgInfo_Model.findOne({ _id: pg_id });
+
+        if (!existingPg) {
+          throw new ReferenceError("PG not found");
+        }
 
         // Validate strings
         if (typeof country_code !== "string")
@@ -158,6 +167,21 @@ export class ownerClass {
             message: "Contact details not found",
           });
         }
+
+        //creating event
+        const msg = JSON.stringify(
+          EventObj.createEventObj(
+            "transactional",
+            `Contact Details of Paying Guest House ${existingPg?.pg_name} has been Updated`,
+            false,
+            "success",
+            updatedContactDetails?.user_id?.toString(),
+            req.headers["devicetoken"]
+          )
+        );
+
+        //publishing to amqp server
+        AMQP.publishMsg("noti-queue", msg);
 
         res.status(200).json({
           message: "Contact details updated successfully",

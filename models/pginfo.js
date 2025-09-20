@@ -58,6 +58,19 @@ const pgInfoSchema = new Schema({
     },
     required: [true, "WIFI availability is required"],
   },
+  wifi_speed: {
+    type: String,
+    default: '',
+    trim: true,
+  },
+  additional_wifi_charges: {
+    type: Number,
+    default: 0
+  },
+  charge_duration: {
+    type: String,
+    enum: ["monthly", "quarterly", "halfyearly", "yearly"],
+  },
   food_available: {
     type: String,
     enum: {

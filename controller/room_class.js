@@ -3,6 +3,8 @@ import { RoomInfo_Model } from "../models/roominfo.js";
 import mongoose from "mongoose";
 import { getPublicIdFromUrl } from "../server-utils/publicURLFetcher.js";
 import cloudinary from "../lib/assetstorage_config.js";
+import { EventObj } from "../lib/event.config.js";
+import { AMQP } from "../lib/amqp.connect.js";
 
 export class Room {
   static async CreateRoom(room, req, index) {
@@ -36,6 +38,7 @@ export class Room {
       ac_available,
       attached_bathroom,
       deposit_duration,
+      aminities,
       room_image_url,
       room_image_id,
       pg_id,
@@ -76,6 +79,15 @@ export class Room {
         "Deposit duration must be 'monthly', 'quarterly', 'halfyearly', or 'yearly'"
       );
 
+    if (aminities){
+      if(Array.isArray(aminities.split(','))){
+        room.aminities = aminities.split(',').map(item => item.trim());
+      }
+      else{
+        throw new TypeError("Aminities must be an array of strings");
+      }
+    }
+
     if (!mongoose.Types.ObjectId.isValid(pg_id))
       throw new TypeError("PG ID must be a valid ObjectId format");
 
@@ -95,6 +107,7 @@ export class Room {
       ac_available,
       attached_bathroom,
       deposit_duration,
+      aminities,
     } = room;
     // validate each room entry
 
@@ -165,6 +178,10 @@ export class Room {
       throw new TypeError(
         "Deposit duration must be 'monthly', 'quarterly', 'halfyearly', or 'yearly'"
       );
+    
+    if (aminities && !Array.isArray(aminities.split(','))){
+      throw new TypeError("Aminities must be an array of strings");
+    }
 
     const updateData = {
       pg_id,
@@ -173,6 +190,7 @@ export class Room {
       ac_available,
       attached_bathroom,
       deposit_duration,
+      aminities: aminities.split(',').map(item => item.trim()),
       room_image_url: room.room_image_url,
       room_image_id: room.room_image_id
     };
@@ -196,6 +214,7 @@ export class Room {
   static async GetRooms(pg_id) {
     return RoomInfo_Model.find({ pg_id: pg_id });
   }
+  
 
   static async DeleteRoom(req, res) {
     try {
@@ -215,15 +234,20 @@ export class Room {
         { room_image_url: 1, room_image_id: 1 }
       );
 
-      if (prev_img?.room_image_url !== null && prev_img?.room_image_url !== "") {
+      if (
+        prev_img?.room_image_url !== null &&
+        prev_img?.room_image_url !== ""
+      ) {
         try {
           await cloudinary.uploader.destroy(prev_img?.room_image_id);
         } catch (error) {
-          throw new Error(`Error while Deleting Room image : ${error?.message}`)
+          throw new Error(
+            `Error while Deleting Room image : ${error?.message}`
+          );
         }
       }
 
-      const deleteRoom = await RoomInfo_Model.deleteOne({_id:roomid});
+      const deleteRoom = await RoomInfo_Model.deleteOne({ _id: roomid });
 
       // console.log(deleteRoom)
 
