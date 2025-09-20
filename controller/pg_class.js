@@ -210,7 +210,7 @@ export class Pg {
 
         const pgCoordinates = [...rest.location.coordinates].reverse();
 
-        const linearDistance = haversineDistance([...coordinatesArray].reverse(),pgCoordinates)
+        const linearDistance = haversineDistance([...coordinatesArray].reverse(), pgCoordinates)
 
         let res_data = {
           pginfo: { ...rest, minRent: minRent, averageRating: averageRating, linearDistance: linearDistance },
@@ -546,7 +546,7 @@ export class Pg {
       const pipeline = [
         {
           $match: {
-            _id: { $ne:mongoose.Types.ObjectId.createFromHexString(id) }, // Exclude the current PG
+            _id: { $ne: mongoose.Types.ObjectId.createFromHexString(id) }, // Exclude the current PG
             location: {
               $geoWithin: {
                 $centerSphere: [coordinatesArray, radiusInRadians],
@@ -566,7 +566,7 @@ export class Pg {
 
         const pgCoordinates = [...rest.location.coordinates].reverse();
 
-        const linearDistance = haversineDistance([...coordinatesArray].reverse(),pgCoordinates)
+        const linearDistance = haversineDistance([...coordinatesArray].reverse(), pgCoordinates)
 
         let res_data = {
           pginfo: { ...rest, minRent: minRent, averageRating: averageRating, linearDistance: linearDistance },
@@ -708,11 +708,11 @@ export class Pg {
         throw new Error("Database server is not connected properly");
       }
 
-      const pgFile = req.files.find((f) => f.fieldname === "pg_image_url");
-      if (pgFile) {
-        req.body.pg_image_url = pgFile?.path; // storing the url of the image
-        req.body.pg_image_id = pgFile?.filename; // storing the public id of the image
-      }
+      // const pgFile = req.files.find((f) => f.fieldname === "pg_image_url");
+      // if (pgFile) {
+      //   req.body.pg_images.pg_image_url = pgFile?.path; // storing the url of the image
+      //   req.body.pg_images.pg_image_id = pgFile?.filename; // storing the public id of the image
+      // }
 
       // console.log(req.files,"Files Object");
       // console.log(pgFile,"PG File");
@@ -727,8 +727,7 @@ export class Pg {
         wifi_available,
         food_available,
         rules,
-        pg_image_url,
-        pg_image_id,
+        pg_images,
         pg_type,
       } = req.body;
 
@@ -756,10 +755,6 @@ export class Pg {
         throw new TypeError("Food must be yes/no");
       if (typeof rules !== "string")
         throw new TypeError("Rules must be string");
-      if (typeof pg_image_url !== "string")
-        throw new TypeError("PG image URL must be string");
-      if (typeof pg_image_id !== "string")
-        throw new TypeError("PG image ID must be string");
       if (typeof pg_type !== "string")
         throw new TypeError("PG Type must be string");
       if (!/^\d{6}$/.test(pincode.toString()))
@@ -831,8 +826,7 @@ export class Pg {
         wifi_available,
         food_available,
         rules,
-        pg_image_url,
-        pg_image_id,
+        pg_images,
         pg_type,
         location: location,
       });
@@ -903,16 +897,31 @@ export class Pg {
       // extract and delete old image if exists
       const prev_img = await PgInfo_Model.findOne(
         { _id: id },
-        { pg_image_url: 1, pg_image_id: 1 }
+        // { pg_image_url: 1, pg_image_id: 1 }
+        { pg_images: 1 }
       );
 
-      if (prev_img?.pg_image_url !== null && prev_img?.pg_image_url !== "") {
-        try {
-          await cloudinary.uploader.destroy(prev_img?.pg_image_id);
-        } catch (error) {
-          throw new Error(`Error while Deleting Image : ${error?.message}`);
+      // if (prev_img?.pg_image_url !== null && prev_img?.pg_image_url !== "") {
+      //   try {
+      //     await cloudinary.uploader.destroy(prev_img?.pg_image_id);
+      //   } catch (error) {
+      //     throw new Error(`Error while Deleting Image : ${error?.message}`);
+      //   }
+      // }
+
+      for (const img of prev_img?.pg_images || []) {
+        if (img?.pg_image_url !== null && img?.pg_image_url !== "") {
+          try {
+            await cloudinary.uploader.destroy(img?.pg_image_id);
+          } catch (error) {
+            console.error(
+              `Error while Deleting Image (ID: ${img?.pg_image_id}) : ${error?.message}`
+            );
+            // Not throwing error to continue deletion of PG and rooms
+          }
         }
       }
+
 
       const deletedPg = await PgInfo_Model.findByIdAndDelete(id);
 
@@ -965,23 +974,28 @@ export class Pg {
       // extract and delete old image if exists
       const prev_img = await PgInfo_Model.findOne(
         { _id: id },
-        { pg_image_url: 1, pg_image_id: 1 }
+        { pg_images: 1 }
       );
 
-      if (prev_img?.pg_image_url !== null && prev_img?.pg_image_url !== "") {
-        try {
-          await cloudinary.uploader.destroy(prev_img?.pg_image_id);
-        } catch (error) {
-          throw new Error(`Error while Deleting Image : ${error?.message}`);
+      for (const img of prev_img?.pg_images || []) {
+        if (img?.pg_image_url !== null && img?.pg_image_url !== "") {
+          try {
+            await cloudinary.uploader.destroy(img?.pg_image_id);
+          } catch (error) {
+            console.error(
+              `Error while Deleting Image (ID: ${img?.pg_image_id}) : ${error?.message}`
+            );
+            // Not throwing error to continue deletion of PG and rooms
+          }
         }
       }
 
       // upload new image
-      const pgFile = req.files.find((f) => f.fieldname === "pg_image_url");
-      if (pgFile) {
-        req.body.pg_image_url = pgFile?.path; // storing the url of the image
-        req.body.pg_image_id = pgFile?.filename; // storing the public id of the image
-      }
+      // const pgFile = req.files.find((f) => f.fieldname === "pg_image_url");
+      // if (pgFile) {
+      //   req.body.pg_image_url = pgFile?.path; // storing the url of the image
+      //   req.body.pg_image_id = pgFile?.filename; // storing the public id of the image
+      // }
 
       const {
         pg_name,
@@ -993,8 +1007,7 @@ export class Pg {
         wifi_available,
         food_available,
         rules,
-        pg_image_url,
-        pg_image_id,
+        pg_images,
         pg_type,
       } = req.body;
 
@@ -1022,10 +1035,6 @@ export class Pg {
         throw new TypeError("Food must be yes/no");
       if (typeof rules !== "string")
         throw new TypeError("Rules must be string");
-      if (typeof pg_image_url !== "string")
-        throw new TypeError("PG image URL must be string");
-      if (typeof pg_image_id !== "string")
-        throw new TypeError("PG image ID must be string");
       if (typeof pg_type !== "string")
         throw new TypeError("PG Type must be string");
       if (!/^\d{6}$/.test(pincode.toString()))
@@ -1074,8 +1083,7 @@ export class Pg {
         wifi_available,
         food_available,
         rules,
-        pg_image_url,
-        pg_image_id,
+        pg_images,
         pg_type,
         address,
         location: location,
