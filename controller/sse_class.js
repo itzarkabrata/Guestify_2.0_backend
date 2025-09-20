@@ -19,6 +19,7 @@ export class SSE {
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
+      res.setHeader("Content-Encoding", "identity");
 
       // Ensure headers are sent immediately
       res.flushHeaders();
@@ -42,10 +43,16 @@ export class SSE {
       });
     } catch (error) {
       console.log(`SSE Handler Error: ${error.message}`);
-      res.status(500).json({
-        message: "SSE connection failed",
-        error: error.message,
-      });
+      try {
+        res.write(
+          `event: error\ndata: ${JSON.stringify({
+            message: error.message,
+          })}\n\n`
+        );
+        res.end();
+      } catch (_) {
+        // ignore, in case headers already sent
+      }
     }
   }
 
@@ -58,6 +65,11 @@ export class SSE {
       SSE.clients[userId].forEach((res) => {
         res.write(`event: ${type}\n`);
         res.write(`data: ${JSON.stringify(payload)}\n\n`);
+
+        // flush immediately so client sees it without delay
+        if (typeof res.flush === "function") {
+          res.flush();
+        }
       });
     }
   }
