@@ -149,7 +149,7 @@ export class UserProfile {
           const msg = JSON.stringify(
             EventObj.createEventObj(
               "transactional",
-              "User details updated",
+              "Profile Details Updated",
               false,
               "success",
               updated_user[0]._id,
@@ -159,6 +159,7 @@ export class UserProfile {
 
           //publishing to amqp server
           AMQP.publishMsg("noti-queue", msg);
+
           res.status(200).json({
             message: "User details updated successfully",
             data: {

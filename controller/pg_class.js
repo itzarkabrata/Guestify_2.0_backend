@@ -9,6 +9,8 @@ import cloudinary from "../lib/assetstorage_config.js";
 import { ownerClass } from "./owner_class.js";
 import { haversineDistance } from "../server-utils/publicURLFetcher.js";
 import { redisClient } from "../lib/redis.config.js";
+import { EventObj } from "../lib/event.config.js";
+import { AMQP } from "../lib/amqp.connect.js";
 // import { filterPGsAndRoomsByRent } from "../server-utils/publicURLFetcher.js";
 // import { Review } from "./review_class.js";
 
@@ -794,11 +796,14 @@ export class Pg {
         throw new TypeError("PG Type must be string");
       if (!/^\d{6}$/.test(pincode.toString()))
         throw new EvalError("Pincode must be 6 digits");
-      if(wifi_speed && typeof wifi_speed!=="string")
+      if (wifi_speed && typeof wifi_speed !== "string")
         throw new TypeError("Wifi Speed Must be of type string");
-      if(additional_wifi_charges && typeof Number(additional_wifi_charges)!=="number")
+      if (
+        additional_wifi_charges &&
+        typeof Number(additional_wifi_charges) !== "number"
+      )
         throw new TypeError("Wifi Charges Must be of type Number");
-      if(charge_duration && typeof charge_duration!=="string")
+      if (charge_duration && typeof charge_duration !== "string")
         throw new TypeError("Wifi Charge Duration Must be of type string");
 
       if (!mongoose.Types.ObjectId.isValid(user_id)) {
@@ -901,6 +906,21 @@ export class Pg {
       await session.commitTransaction();
       session.endSession();
 
+      //creating event
+      const msg = JSON.stringify(
+        EventObj.createEventObj(
+          "transactional",
+          `New Paying Guest House ${new_pg?.pg_name} has been Added`,
+          false,
+          "success",
+          user_id,
+          req.headers["devicetoken"]
+        )
+      );
+
+      //publishing to amqp server
+      AMQP.publishMsg("noti-queue", msg);
+
       res.status(200).json({
         message: "PG and rooms added successfully",
       });
@@ -967,6 +987,21 @@ export class Pg {
 
       await session.commitTransaction();
       session.endSession();
+
+      //creating event
+      const msg = JSON.stringify(
+        EventObj.createEventObj(
+          "transactional",
+          `Paying Guest House ${deletedPg?.pg_name} has been Deleted`,
+          false,
+          "success",
+          deletedPg?.user_id?.toString(),
+          req.headers["devicetoken"]
+        )
+      );
+
+      //publishing to amqp server
+      AMQP.publishMsg("noti-queue", msg);
 
       res.status(200).json({
         message: "PG and Rooms deleted successfully",
@@ -1141,6 +1176,21 @@ export class Pg {
         throw new ReferenceError("PG not found");
       }
 
+      //creating event
+      const msg = JSON.stringify(
+        EventObj.createEventObj(
+          "transactional",
+          `Basic Details of Paying Guest House ${updatedPg?.pg_name} has been Updated`,
+          false,
+          "success",
+          updatedPg?.user_id?.toString(),
+          req.headers["devicetoken"]
+        )
+      );
+
+      //publishing to amqp server
+      AMQP.publishMsg("noti-queue", msg);
+
       res.status(200).json({
         message: "PG Basic Details updated successfully",
         data: updatedPg,
@@ -1175,6 +1225,14 @@ export class Pg {
         throw new TypeError("Invalid PG ID format");
       }
 
+      const existingPg = await PgInfo_Model.findOne(
+        { _id: id },
+      );
+
+      if(!existingPg){
+        throw new ReferenceError("PG not found");
+      }
+
       const user_id = req.user.id;
       if (!user_id) {
         throw new TypeError("Authorization failed: token missing");
@@ -1202,6 +1260,21 @@ export class Pg {
 
       await session.commitTransaction();
       session.endSession();
+
+      //creating event
+      const msg = JSON.stringify(
+        EventObj.createEventObj(
+          "transactional",
+          `Room Details of Paying Guest House ${existingPg?.pg_name} has been Updated`,
+          false,
+          "success",
+          existingPg?.user_id?.toString(),
+          req.headers["devicetoken"]
+        )
+      );
+
+      //publishing to amqp server
+      AMQP.publishMsg("noti-queue", msg);
 
       res.status(200).json({
         message: "Rooms Updated successfully",
@@ -1243,6 +1316,14 @@ export class Pg {
         throw new TypeError("Invalid PG ID format");
       }
 
+      const existingPg = await PgInfo_Model.findOne(
+        { _id: id },
+      );
+
+      if(!existingPg){
+        throw new ReferenceError("PG not found");
+      }
+
       const user_id = req.user.id;
       if (!user_id) {
         throw new TypeError("Authorization failed: token missing");
@@ -1271,6 +1352,21 @@ export class Pg {
 
       await session.commitTransaction();
       session.endSession();
+
+      //creating event
+      const msg = JSON.stringify(
+        EventObj.createEventObj(
+          "transactional",
+          `New Rooms have been Added to Paying Guest House ${existingPg?.pg_name}`,
+          false,
+          "success",
+          existingPg?.user_id?.toString(),
+          req.headers["devicetoken"]
+        )
+      );
+
+      //publishing to amqp server
+      AMQP.publishMsg("noti-queue", msg);
 
       res.status(200).json({
         message: "Rooms Created successfully",
