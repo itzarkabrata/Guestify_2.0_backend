@@ -684,14 +684,14 @@ export class Pg {
       }
 
       // Check if the data already in redis
-      const cachedData = await redisClient.get(`pg-list-user-${userid}`);
-      if (cachedData) {
-        return res.status(200).json({
-          message: "PG fetched successfully",
-          count: JSON.parse(cachedData).length,
-          data: JSON.parse(cachedData),
-        });
-      }
+      // const cachedData = await redisClient.get(`pg-list-user-${userid}`);
+      // if (cachedData) {
+      //   return res.status(200).json({
+      //     message: "PG fetched successfully",
+      //     count: JSON.parse(cachedData).length,
+      //     data: JSON.parse(cachedData),
+      //   });
+      // }
 
       const pgList = await PgInfo_Model.find({ user_id: userid });
 
@@ -711,7 +711,7 @@ export class Pg {
       }
 
       // Store the final Response to redis for 3 minutes
-      await redisClient.set(`pg-list-user-${userid}`, JSON.stringify(final_response), "EX", 180);
+      // await redisClient.set(`pg-list-user-${userid}`, JSON.stringify(final_response), "EX", 180);
 
       res.status(200).json({
         message: "PG fetched successfully",
