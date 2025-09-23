@@ -8,14 +8,26 @@ const roomInfoSchema = new Schema(
       required: [true, "Room type is required"],
       enum: ["single", "double", "triple"],
     },
-    room_image_url: {
-      type: String,
-      required: [true, "Room image URL is required"],
-      trim: true,
-    },
-    room_image_id: {
-      type: String,
-    },
+    // room_image_url: {
+    //   type: String,
+    //   required: [true, "Room image URL is required"],
+    //   trim: true,
+    // },
+    // room_image_id: {
+    //   type: String,
+    // },
+    room_images: [
+      {
+        room_image_url: {
+          type: String,
+          required: [true, 'Image URL is required'],
+        },
+        room_image_id: {
+          type: String,
+          required: [true, 'Image ID is required'],
+        }
+      }
+    ],
     room_rent: {
       type: Number,
       required: [true, "Room rent is required"],
