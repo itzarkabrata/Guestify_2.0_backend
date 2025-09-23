@@ -1046,23 +1046,23 @@ export class Pg {
       }
 
       // extract and delete old image if exists
-      const prev_img = await PgInfo_Model.findOne(
-        { _id: id },
-        { pg_images: 1 }
-      );
+      // const prev_img = await PgInfo_Model.findOne(
+      //   { _id: id },
+      //   { pg_images: 1 }
+      // );
 
-      for (const img of prev_img?.pg_images || []) {
-        if (img?.pg_image_url !== null && img?.pg_image_url !== "") {
-          try {
-            await cloudinary.uploader.destroy(img?.pg_image_id);
-          } catch (error) {
-            console.error(
-              `Error while Deleting Image (ID: ${img?.pg_image_id}) : ${error?.message}`
-            );
-            // Not throwing error to continue deletion of PG and rooms
-          }
-        }
-      }
+      // for (const img of prev_img?.pg_images || []) {
+      //   if (img?.pg_image_url !== null && img?.pg_image_url !== "") {
+      //     try {
+      //       await cloudinary.uploader.destroy(img?.pg_image_id);
+      //     } catch (error) {
+      //       console.error(
+      //         `Error while Deleting Image (ID: ${img?.pg_image_id}) : ${error?.message}`
+      //       );
+      //       // Not throwing error to continue deletion of PG and rooms
+      //     }
+      //   }
+      // }
 
       // upload new image
       // const pgFile = req.files.find((f) => f.fieldname === "pg_image_url");

@@ -101,15 +101,15 @@ export class ownerClass {
           throw new TypeError("WhatsApp number must be of type string");
 
         // Validate booleans
-        if (typeof is_phone_verified !== "string")
+        if (typeof is_phone_verified !== "boolean")
           throw new TypeError(
             "Phone verification status must be of type boolean"
           );
 
-        if (typeof same_as_phone !== "string")
+        if (typeof same_as_phone !== "boolean")
           throw new TypeError("Same as phone must be of type boolean");
 
-        if (typeof is_email_verified !== "string")
+        if (typeof is_email_verified !== "boolean")
           throw new TypeError(
             "Email verification status must be of type boolean"
           );
@@ -249,13 +249,13 @@ export class ownerClass {
       throw new TypeError("WhatsApp number must be of type string");
 
     // Validate booleans
-    if (typeof is_phone_verified !== "string")
+    if (typeof is_phone_verified !== "boolean")
       throw new TypeError("Phone verification status must be of type boolean");
 
-    if (typeof same_as_phone !== "string")
+    if (typeof same_as_phone !== "boolean")
       throw new TypeError("Same as phone must be of type boolean");
 
-    if (typeof is_email_verified !== "string")
+    if (typeof is_email_verified !== "boolean")
       throw new TypeError("Email verification status must be of type boolean");
 
     // Validate email (basic regex check)

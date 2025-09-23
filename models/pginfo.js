@@ -92,17 +92,17 @@ const pgInfoSchema = new Schema({
   //   type: String,
   // },
   pg_images: [
-  {
-    pg_image_url: {
-      type: String,
-      required: [true, 'Image URL is required'],
-    },
-    pg_image_id: {
-      type: String,
-      required: [true, 'Image ID is required'],
+    {
+      pg_image_url: {
+        type: String,
+        required: [true, 'Image URL is required'],
+      },
+      pg_image_id: {
+        type: String,
+        required: [true, 'Image ID is required'],
+      }
     }
-  }
-],
+  ],
 
   pg_type: {
     type: String,
