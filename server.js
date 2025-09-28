@@ -18,6 +18,7 @@ import { room_router } from "./routes/room_route.js";
 import { sms_router } from "./routes/sms_route.js";
 import { email_otp_router } from "./routes/email_otp_route.js";
 import { owner_router } from "./routes/owner_route.js";
+import compression from "compression";
 
 // Resolve __dirname in ES modules
 export const __filename = fileURLToPath(import.meta.url);
@@ -44,6 +45,7 @@ app.use("/user-assets", express.static(path.join(__dirname, "user-assets")));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
+app.use(compression());
 
 // app.get("/", (req, res) => {
 //   res.sendFile(path.join(__dirname, "index.html"));
