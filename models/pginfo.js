@@ -26,7 +26,7 @@ const pgInfoSchema = new Schema({
     trim: true,
   },
   house_no: {
-    type: Number,
+    type: String,
     required: [true, 'House number is required'],
     min: [1, 'House number must be at least 1'],
   },
@@ -84,13 +84,26 @@ const pgInfoSchema = new Schema({
     default: '',
     trim: true,
   },
-  pg_image_url: {
-    type: String,
-    required: [true, 'PG image URL is required'],
-  },
-  pg_image_id: {
-    type: String,
-  },
+  // pg_image_url: {
+  //   type: [String],
+  //   required: [true, 'PG image URL is required'],
+  // },
+  // pg_image_id: {
+  //   type: String,
+  // },
+  pg_images: [
+    {
+      pg_image_url: {
+        type: String,
+        required: [true, 'Image URL is required'],
+      },
+      pg_image_id: {
+        type: String,
+        required: [true, 'Image ID is required'],
+      }
+    }
+  ],
+
   pg_type: {
     type: String,
     enum: {
