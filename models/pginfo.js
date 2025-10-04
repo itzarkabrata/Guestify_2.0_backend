@@ -26,7 +26,7 @@ const pgInfoSchema = new Schema({
     trim: true,
   },
   house_no: {
-    type: Number,
+    type: String,
     required: [true, 'House number is required'],
     min: [1, 'House number must be at least 1'],
   },

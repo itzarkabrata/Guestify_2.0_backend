@@ -773,8 +773,8 @@ export class Pg {
         throw new TypeError("PG name must be string");
       if (typeof district !== "string")
         throw new TypeError("Disctrict name must be string");
-      if (typeof Number(house_no) !== "number")
-        throw new TypeError("House number must be number");
+      if (typeof house_no !== "string")
+        throw new TypeError("House number must be string");
       if (typeof state !== "string")
         throw new TypeError("State must be string");
       if (typeof Number(pincode) !== "number")
@@ -1098,8 +1098,8 @@ export class Pg {
         throw new TypeError("PG name must be string");
       if (typeof district !== "string")
         throw new TypeError("Disctrict name must be string");
-      if (typeof Number(house_no) !== "number")
-        throw new TypeError("House number must be number");
+      if (typeof house_no !== "string")
+        throw new TypeError("House number must be string");
       if (typeof state !== "string")
         throw new TypeError("State must be string");
       if (typeof Number(pincode) !== "number")

@@ -18,6 +18,7 @@ import { room_router } from "./routes/room_route.js";
 import { sms_router } from "./routes/sms_route.js";
 import { email_otp_router } from "./routes/email_otp_route.js";
 import { owner_router } from "./routes/owner_route.js";
+import compression from "compression";
 import { image_upload_router } from "./routes/image_upload_route.js";
 
 // Resolve __dirname in ES modules
@@ -45,6 +46,7 @@ app.use("/user-assets", express.static(path.join(__dirname, "user-assets")));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
+app.use(compression());
 
 // app.get("/", (req, res) => {
 //   res.sendFile(path.join(__dirname, "index.html"));
@@ -89,6 +91,9 @@ server.listen(port_number, async () => {
 
     // continuously consuming messages from primary queue
     await AMQP.consumeMsg("noti-queue");
+
+    // continuously consuming message from primary mail queue
+    await AMQP.consumeEmail("email-queue");
 
     // continuously consuming messages from delete queue
     await AMQP.consumeMsg_DLQ("delete-noti-queue");
