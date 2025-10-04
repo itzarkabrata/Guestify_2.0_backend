@@ -92,6 +92,9 @@ server.listen(port_number, async () => {
     // continuously consuming messages from primary queue
     await AMQP.consumeMsg("noti-queue");
 
+    // continuously consuming message from primary mail queue
+    await AMQP.consumeEmail("email-queue");
+
     // continuously consuming messages from delete queue
     await AMQP.consumeMsg_DLQ("delete-noti-queue");
   } catch (err) {

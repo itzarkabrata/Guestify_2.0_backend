@@ -97,8 +97,23 @@ export class User {
           )
         );
 
+        // craeting welcome email
+        const email_msg = JSON.stringify(
+          EventObj.createMailEventObj(
+            email,
+            "Welcome to Guestify - Your Journey Begins Here!",
+            "welcome",
+            { userName: first_name + " " + last_name, login_url: process.env.FRONTEND_URL || "https://guestify-2-0.vercel.app" + "/login" },
+            "Welcome Email Sent successfully",
+            "Welcome Email not sent"
+          )
+        )
+
         //publishing to amqp server
         AMQP.publishMsg("noti-queue", msg);
+
+        //publishing to email queue
+        AMQP.publishEmail("email-queue", email_msg);
 
         res.status(200).json({
           message:
