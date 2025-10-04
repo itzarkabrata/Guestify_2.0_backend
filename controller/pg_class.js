@@ -39,8 +39,9 @@ export class Pg {
       );
       if (roomfile) {
         // Save file to cloud / disk and get URL
-        room.room_image_url = `${req.protocol}://${req.get("host")}/${roomfile?.path
-          }`;
+        room.room_image_url = `${req.protocol}://${req.get("host")}/${
+          roomfile?.path
+        }`;
       }
 
       rooms.push(room);
@@ -146,15 +147,15 @@ export class Pg {
                 cond:
                   min !== null || max !== null
                     ? {
-                      $and: [
-                        ...(min !== null
-                          ? [{ $gte: ["$$room.room_rent", min] }]
-                          : []),
-                        ...(max !== null
-                          ? [{ $lte: ["$$room.room_rent", max] }]
-                          : []),
-                      ],
-                    }
+                        $and: [
+                          ...(min !== null
+                            ? [{ $gte: ["$$room.room_rent", min] }]
+                            : []),
+                          ...(max !== null
+                            ? [{ $lte: ["$$room.room_rent", max] }]
+                            : []),
+                        ],
+                      }
                     : { $gt: ["$$room.room_rent", -1] }, // always true fallback
               },
             },
@@ -189,7 +190,7 @@ export class Pg {
         },
         {
           $project: {
-            reviews: 0
+            reviews: 0,
           },
         },
       ];
@@ -202,21 +203,27 @@ export class Pg {
         });
       }
 
-
       const pgList = await PgInfo_Model.aggregate(pipeline);
 
       const final_response = [];
 
       for (const pg of pgList) {
-
         const { rooms, minRent, averageRating, ...rest } = pg;
 
         const pgCoordinates = [...rest.location.coordinates].reverse();
 
-        const linearDistance = haversineDistance([...coordinatesArray].reverse(), pgCoordinates)
+        const linearDistance = haversineDistance(
+          [...coordinatesArray].reverse(),
+          pgCoordinates
+        );
 
         let res_data = {
-          pginfo: { ...rest, minRent: minRent, averageRating: averageRating, linearDistance: linearDistance },
+          pginfo: {
+            ...rest,
+            minRent: minRent,
+            averageRating: averageRating,
+            linearDistance: linearDistance,
+          },
           rooms: rooms,
         };
 
@@ -328,15 +335,15 @@ export class Pg {
                 cond:
                   min !== null || max !== null
                     ? {
-                      $and: [
-                        ...(min !== null
-                          ? [{ $gte: ["$$room.room_rent", min] }]
-                          : []),
-                        ...(max !== null
-                          ? [{ $lte: ["$$room.room_rent", max] }]
-                          : []),
-                      ],
-                    }
+                        $and: [
+                          ...(min !== null
+                            ? [{ $gte: ["$$room.room_rent", min] }]
+                            : []),
+                          ...(max !== null
+                            ? [{ $lte: ["$$room.room_rent", max] }]
+                            : []),
+                        ],
+                      }
                     : { $gt: ["$$room.room_rent", -1] }, // always true fallback
               },
             },
@@ -371,7 +378,7 @@ export class Pg {
         },
         {
           $project: {
-            reviews: 0
+            reviews: 0,
           },
         },
       ];
@@ -384,13 +391,12 @@ export class Pg {
         });
       }
 
-
       const pgList = await PgInfo_Model.aggregate(pipeline);
 
       res.status(200).json({
         message: "PGs fetched successfully",
         count: pgList.length,
-        data: pgList.map(pg => ({
+        data: pgList.map((pg) => ({
           _id: pg._id,
           pg_name: pg.pg_name,
           address: pg.address,
@@ -398,7 +404,6 @@ export class Pg {
           // pg_image_url: pg.pg_image_url,
         })),
       });
-
     } catch (error) {
       console.error(error.message);
 
@@ -511,7 +516,7 @@ export class Pg {
       res.status(200).json({
         message: "Nearby PGs fetched successfully",
         count: pgList.length,
-        data: pgList.map(pg => ({
+        data: pgList.map((pg) => ({
           _id: pg._id,
           pg_name: pg.pg_name,
           address: pg.address,
@@ -574,15 +579,22 @@ export class Pg {
       const final_response = [];
 
       for (const pg of pgList) {
-
         const { rooms, minRent, averageRating, ...rest } = pg;
 
         const pgCoordinates = [...rest.location.coordinates].reverse();
 
-        const linearDistance = haversineDistance([...coordinatesArray].reverse(), pgCoordinates)
+        const linearDistance = haversineDistance(
+          [...coordinatesArray].reverse(),
+          pgCoordinates
+        );
 
         let res_data = {
-          pginfo: { ...rest, minRent: minRent, averageRating: averageRating, linearDistance: linearDistance },
+          pginfo: {
+            ...rest,
+            minRent: minRent,
+            averageRating: averageRating,
+            linearDistance: linearDistance,
+          },
           rooms: rooms, // currently not fetched but can be fetched if needed
         };
 
@@ -590,7 +602,12 @@ export class Pg {
       }
 
       // Store the final Response to redis for 5 minutes
-      await redisClient.set(`pg-list-nearpg-${id}`, JSON.stringify(final_response), "EX", 300);
+      await redisClient.set(
+        `pg-list-nearpg-${id}`,
+        JSON.stringify(final_response),
+        "EX",
+        300
+      );
 
       res.status(200).json({
         message: "PGs fetched successfully",
@@ -650,7 +667,8 @@ export class Pg {
 
       const rooms = await Room.GetRooms(pg?._id);
 
-      const minRent = rooms.length > 0 ? Math.min(...rooms.map(r => r.room_rent)) : null;
+      const minRent =
+        rooms.length > 0 ? Math.min(...rooms.map((r) => r.room_rent)) : null;
 
       const res_data = {
         pginfo: pg ? { ...pg._doc, minRent: minRent } : null,
@@ -912,8 +930,34 @@ export class Pg {
         )
       );
 
+      // creating email event
+      const email_msg = JSON.stringify(
+        EventObj.createMailEventObj(
+          req.body.contact_details?.email,
+          "New PG Added Successfully",
+          "new-pg",
+          {
+            userName: req.body.contact_details?.owner_name,
+            pg_name: new_pg?.pg_name,
+            pg_type: new_pg?.pg_type,
+            owner_name: req.body.contact_details?.owner_name,
+            address: new_pg?.address,
+            pg_image:
+              new_pg?.pg_images && new_pg?.pg_images.length > 0
+                ? new_pg?.pg_images[0]?.pg_image_url
+                : null,
+            pg_link: `${process.env.FRONTEND_URL}/pg/${new_pg?._id}`,
+          },
+          "New Paying Guest Huse Enlisted",
+          "Mail Not Send to the Recipient"
+        )
+      );
+
       //publishing to amqp server
       AMQP.publishMsg("noti-queue", msg);
+
+      // publish to the email queue
+      AMQP.publishEmail("email-queue", email_msg);
 
       res.status(200).json({
         message: "PG and rooms added successfully",
@@ -927,8 +971,8 @@ export class Pg {
 
       const statusCode =
         error instanceof TypeError ||
-          error instanceof EvalError ||
-          error instanceof ReferenceError
+        error instanceof EvalError ||
+        error instanceof ReferenceError
           ? 400
           : 500;
 
@@ -980,7 +1024,6 @@ export class Pg {
           }
         }
       }
-
 
       const deletedPg = await PgInfo_Model.findByIdAndDelete(id);
 
@@ -1121,11 +1164,14 @@ export class Pg {
       if (!/^\d{6}$/.test(pincode.toString())) {
         throw new EvalError("Pincode must be exactly 6 digits");
       }
-      if(wifi_speed && typeof wifi_speed!=="string")
+      if (wifi_speed && typeof wifi_speed !== "string")
         throw new TypeError("Wifi Speed Must be of type string");
-      if(additional_wifi_charges && typeof Number(additional_wifi_charges)!=="number")
+      if (
+        additional_wifi_charges &&
+        typeof Number(additional_wifi_charges) !== "number"
+      )
         throw new TypeError("Wifi Charges Must be of type Number");
-      if(charge_duration && typeof charge_duration!=="string")
+      if (charge_duration && typeof charge_duration !== "string")
         throw new TypeError("Wifi Charge Duration Must be of type string");
 
       //computing the address
@@ -1233,11 +1279,9 @@ export class Pg {
         throw new TypeError("Invalid PG ID format");
       }
 
-      const existingPg = await PgInfo_Model.findOne(
-        { _id: id },
-      );
+      const existingPg = await PgInfo_Model.findOne({ _id: id });
 
-      if(!existingPg){
+      if (!existingPg) {
         throw new ReferenceError("PG not found");
       }
 
@@ -1297,8 +1341,8 @@ export class Pg {
 
       const statusCode =
         error instanceof TypeError ||
-          error instanceof EvalError ||
-          error instanceof ReferenceError
+        error instanceof EvalError ||
+        error instanceof ReferenceError
           ? 400
           : 500;
 
@@ -1324,11 +1368,9 @@ export class Pg {
         throw new TypeError("Invalid PG ID format");
       }
 
-      const existingPg = await PgInfo_Model.findOne(
-        { _id: id },
-      );
+      const existingPg = await PgInfo_Model.findOne({ _id: id });
 
-      if(!existingPg){
+      if (!existingPg) {
         throw new ReferenceError("PG not found");
       }
 
@@ -1389,8 +1431,8 @@ export class Pg {
 
       const statusCode =
         error instanceof TypeError ||
-          error instanceof EvalError ||
-          error instanceof ReferenceError
+        error instanceof EvalError ||
+        error instanceof ReferenceError
           ? 400
           : 500;
 
