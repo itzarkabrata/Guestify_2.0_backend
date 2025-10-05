@@ -60,6 +60,10 @@ const UsersSchema = new Schema(
     image_url: {
       type: String,
     },
+    is_admin: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
