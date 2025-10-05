@@ -82,7 +82,6 @@ const pgInfoSchema = new Schema({
   rules: {
     type: String,
     default: '',
-    trim: true,
   },
   // pg_image_url: {
   //   type: [String],
