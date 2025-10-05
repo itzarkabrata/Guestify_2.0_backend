@@ -32,7 +32,7 @@ export class User {
   static async RegisterUser(req, res) {
     try {
       if (await Database.isConnected()) {
-        const { first_name, last_name, email, password } = req.body;
+        const { first_name, last_name, email, password, is_admin = false } = req.body;
 
         //Check datatype validity
         if (!(typeof first_name === "string")) {
@@ -46,6 +46,9 @@ export class User {
         }
         if (!(typeof password === "string")) {
           throw new TypeError("Password must be of type string");
+        }
+        if(!(typeof is_admin === "boolean")){
+          throw new TypeError("is_admin must be of type boolean");
         }
 
         // Check whether the password satisfies the regex
@@ -83,6 +86,7 @@ export class User {
           district: null,
           pincode: null,
           image_url: null,
+          is_admin: is_admin,
         });
 
         //creating event
@@ -175,6 +179,7 @@ export class User {
             email: 1,
             password: 1,
             image_url: 1,
+            is_admin: 1,
           }
         );
 
@@ -188,6 +193,7 @@ export class User {
               last_name: res_user[0].last_name,
               email: res_user[0].email,
               image_url: res_user[0].image_url,
+              is_admin: res_user[0].is_admin,
             };
             // Token creation
             const token = await jwt.sign(
@@ -341,6 +347,7 @@ export class User {
             email: 1,
             password: 1,
             image_url: 1,
+            is_admin: 1,
           }
         );
 
@@ -350,6 +357,7 @@ export class User {
             last_name: res_user[0].last_name,
             email: res_user[0].email,
             image_url: res_user[0].image_url,
+            is_admin: res_user[0].is_admin,
           };
           // Token creation
           const forget_token = await jwt.sign(
@@ -481,6 +489,7 @@ export class User {
             email: 1,
             password: 1,
             image_url: 1,
+            is_admin: 1,
           }
         );
 
@@ -501,6 +510,7 @@ export class User {
               last_name: res_user[0].last_name,
               email: res_user[0].email,
               image_url: res_user[0].image_url,
+              is_admin: res_user[0].is_admin,
             };
             // Token creation
             const updated_token = await jwt.sign(
