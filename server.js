@@ -101,6 +101,13 @@ server.listen(port_number, async () => {
 
     // continuously consuming messages from delete queue
     await AMQP.consumeMsg_DLQ("delete-noti-queue");
+
+    // continuously consuming messages from primary wishlist queue
+    await AMQP.consumeWishlistItem("wishlist-queue");
+
+    // continuously consuming messages from delete wishlist queue
+    await AMQP.consumeWishlistItem_DLQ("delete-wishlist-queue");
+    
   } catch (err) {
     console.log(err.message);
   }

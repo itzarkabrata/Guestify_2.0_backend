@@ -3,22 +3,22 @@ import { PgInfo_Model } from "../models/pginfo.js";
 import { Wishlist_Model } from "../models/wishlist.js";
 import { User_Model } from "../models/users.js";
 import mongoose from "mongoose";
+import { redisClient } from "../lib/redis.config.js";
+import { AMQP } from "../lib/amqp.connect.js";
+import { EventObj } from "../lib/event.config.js";
 
 export class Wishlist_Class {
   static async addToWishlist(req, res) {
     try {
       if (await Database.isConnected()) {
         const userid = req.user.id;
+        const is_admin = req.user.is_admin;
+
         if (!userid) {
           throw new EvalError("User ID is missing in the request");
         }
 
-        const userinfo = await User_Model.findOne(
-          { _id: userid },
-          { is_admin: 1 }
-        );
-
-        if (userinfo?.is_admin) {
+        if (is_admin) {
           throw new EvalError("Admin user cannot have a wishlist feature");
         }
 
@@ -27,28 +27,25 @@ export class Wishlist_Class {
           throw new EvalError("Paying Guest ID is missing in the request");
         }
 
-        const pg = await PgInfo_Model.findOne({ _id: pg_id });
-        if (!pg) {
-          throw new EvalError(
-            "Paying Guest not found in the Paying Guest List"
-          );
+        // await redisClient.set(`pg-list-user-${userid}`, JSON.stringify(final_response), "EX", 180);
+        const exists = await redisClient.sismember(`${userid}-wishlist`, pg_id);
+
+        if (exists){
+            throw new EvalError("Paying Guest is already in your wishlist");
         }
 
-        const existingWishlistItem = await Wishlist_Model.findOne({
-          user_id: userid,
-          pg_id: pg_id,
-        });
-        if (existingWishlistItem) {
-          throw new EvalError("Paying Guest is already in the wishlist");
-        }
-        const wishlistItem = new Wishlist_Model({
-          user_id: userid,
-          pg_id: pg_id,
-        });
-        await wishlistItem.save();
+        await redisClient.sadd(`${userid}-wishlist`, pg_id);
+
+        AMQP.publishMsg("wishlist-queue", JSON.stringify(
+            EventObj.createWishlistEventObj(userid, pg_id, "create")
+        ));
+        
         res.status(201).json({
           message: "Paying Guest added to wishlist successfully",
-          data: wishlistItem,
+          data: {
+            user_id: userid,
+            pg_id: pg_id,
+          },
         });
       } else {
         throw new Error("Database server is not connected properly");
@@ -82,15 +79,17 @@ export class Wishlist_Class {
           throw new EvalError("Paying Guest ID is missing in the request");
         }
 
-        const wishlistItem = await Wishlist_Model.findOne({
-          user_id: userid,
-          pg_id: pg_id,
-        });
-        if (!wishlistItem) {
-          throw new EvalError("Paying Guest is not found in your wishlist");
+        const exists = await redisClient.sismember(`${userid}-wishlist`, pg_id);
+
+        if (!exists){
+            throw new EvalError("Paying Guest is not in your wishlist");
         }
 
-        await Wishlist_Model.deleteOne({ user_id: userid, pg_id: pg_id });
+        await redisClient.srem(`${userid}-wishlist`, pg_id);
+
+        AMQP.publishMsg("wishlist-queue", JSON.stringify(
+            EventObj.createWishlistEventObj(userid, pg_id, "delete")
+        ));
 
         res.status(200).json({
           message: "Paying Guest removed from wishlist successfully",
