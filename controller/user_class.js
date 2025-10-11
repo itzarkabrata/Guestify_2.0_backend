@@ -614,7 +614,7 @@ export class User {
         req.body.userid = res_user[0]._id;
 
         // only for formdata objects i am again initializes this becouse multer clears req.body data
-        req.user = { id: res_user[0]._id };
+        req.user = { id: res_user[0]._id, is_admin: res_user[0].is_admin };
 
         next();
       } else {
