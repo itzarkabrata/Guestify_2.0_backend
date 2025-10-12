@@ -4,6 +4,8 @@ import { Booking_Model } from "../models/booking.js";
 
 export class Booking {
     static async createBooking(req, res) {
+        const session = await mongoose.startSession();
+        session.startTransaction();
         try {
             // ✅ Check DB connection
             if (!(await Database.isConnected())) {
@@ -45,11 +47,11 @@ export class Booking {
 
             //   const habitateIds = [];
             //   for (const personData of persons) {
-            //     const habitate = await HabitateController.createHabitate(personData);
+            //     const habitate = await HabitateController.createHabitate([personData],{session});
             //     habitateIds.push(habitate._id);
             //   }
 
-            const booking = await Booking_Model.create({
+            const booking = await Booking_Model.create([{
                 room_id,
                 user_id,
                 admin_id,
@@ -58,14 +60,19 @@ export class Booking {
                 accepted_by: null,
                 declined_at: null,
                 declined_by: null,
-            });
+            }],{session});
 
-            // ✅ Send response
+            await session.commitTransaction();
+            session.endSession();
+
             res.status(201).json({
                 message: "Booking created successfully",
                 data: booking,
             });
         } catch (error) {
+            session.abortTransaction();
+            session.endSession();
+
             console.error("Booking creation failed:", error.message);
             res.status(500).json({
                 message: "Failed to create booking",
