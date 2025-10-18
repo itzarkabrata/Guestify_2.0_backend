@@ -17,13 +17,6 @@ const bookingSchema = new Schema({
     ref: 'User',
     required: [true, 'Admin ID is required'],
   },
-  persons: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Habitate', // ✅ reference to Habitate model
-      required: [true, 'Habitate reference is required'],
-    }
-  ],
   accepted_at: {
     type: Date,
     default: null,
