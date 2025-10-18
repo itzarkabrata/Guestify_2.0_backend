@@ -8,6 +8,7 @@ import { PgInfo_Model } from "../models/pginfo.js";
 import { RoomInfo_Model } from "../models/roominfo.js";
 import { Review_Model } from "../models/reviews.js";
 import { redisClient } from "../lib/redis.config.js";
+import { Wishlist_Model } from "../models/wishlist.js";
 
 export class UserProfile {
   static async getProfile(req, res) {
@@ -23,11 +24,13 @@ export class UserProfile {
           );
         }
 
-        const user = await User_Model.find({ _id: uid });
+        const user = await User_Model.find({ _id: uid },{ password: 0});
+
+        const wishlist_pgs = await Wishlist_Model.find({ user_id: uid },{ pg_id: 1, _id: 0 });
 
         res.status(200).json({
           message: "User fetched successfully",
-          data: user,
+          data: {...user[0]._doc, wishlist: wishlist_pgs?.map(item => item.pg_id)},
         });
       } else {
         throw new Error("Database server is not connected properly");
