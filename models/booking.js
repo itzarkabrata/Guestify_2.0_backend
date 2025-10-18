@@ -4,7 +4,7 @@ import mongoose, { Schema } from "mongoose";
 const bookingSchema = new Schema({
   room_id: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: RoomInfo,
+    ref: "RoomInfo",
     required: [true, 'Room ID is required'],
   },
   user_id: {
