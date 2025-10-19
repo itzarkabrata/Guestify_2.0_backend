@@ -17,13 +17,6 @@ const bookingSchema = new Schema({
     ref: 'User',
     required: [true, 'Admin ID is required'],
   },
-  persons: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Habitate', // ✅ reference to Habitate model
-      required: [true, 'Habitate reference is required'],
-    }
-  ],
   accepted_at: {
     type: Date,
     default: null,
@@ -41,7 +34,16 @@ const bookingSchema = new Schema({
     type: String,
     default: null,
     trim: true,
-  }
+  },
+  canceled_at: {
+    type: Date,
+    default: null,
+  },
+  canceled_by: {
+    type: String,
+    default: null,
+    trim: true,
+  },
 }, { timestamps: true });
 
 export const Booking_Model = mongoose.model('Booking', bookingSchema);
