@@ -162,4 +162,134 @@ export class Booking {
       });
     }
   }
+
+  static async changeBookingStatus(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { is_admin, id } = req.user;
+      if (!is_admin) {
+        return res
+          .status(403)
+          .json({ message: "Only admins can change booking status" });
+      }
+
+      const { book_id } = req.params;
+      const { status } = req.body;
+      const validStatus = ["accepted", "declined"];
+      if (!validStatus.includes(status)) {
+        return res
+          .status(400)
+          .json({
+            message: `Invalid status value, value can be either ${validStatus.join(
+              " or "
+            )}`,
+          });
+      }
+
+      const updateFields =
+        status === "accepted"
+          ? {
+              accepted_at: new Date(),
+              accepted_by: id,
+              declined_at: null,
+              declined_by: null,
+            }
+          : {
+              declined_at: new Date(),
+              declined_by: id,
+              accepted_at: null,
+              accepted_by: null,
+            };
+
+      const updatedBooking = await Booking_Model.findByIdAndUpdate(
+        book_id,
+        updateFields,
+        { new: true }
+      );
+
+      if (!updatedBooking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      res.status(200).json({
+        message: `Booking has been ${status} successfully`,
+        data: updatedBooking,
+      });
+    } catch (error) {
+      console.error("Booking status change failed:", error);
+      res.status(500).json({
+        message: "Failed to change booking status",
+        error: error.message,
+      });
+    }
+  }
+
+  static async cancelBooking(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { is_admin, id } = req.user;
+
+      if (is_admin) {
+        return res
+          .status(403)
+          .json({ message: "Admins are not allowed to cancel bookings" });
+      }
+
+      const { book_id } = req.params;
+
+      const canceledBooking = await Booking_Model.findByIdAndUpdate(
+        book_id,
+        {
+          canceled_at: new Date(),
+          canceled_by: id,
+        },
+        { new: true }
+      );
+
+      if (!canceledBooking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      res.status(200).json({
+        message: "Booking has been canceled successfully",
+        data: canceledBooking,
+      });
+
+    } catch (error) {
+      console.error("Booking cancellation failed:", error);
+      res.status(500).json({
+        message: "Failed to cancel booking",
+        error: error.message,
+      });
+    }
+  }
+
+  static async deleteBooking(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+      const { book_id } = req.params;
+      const deletedBooking = await Booking_Model.findByIdAndDelete(book_id);
+      if (!deletedBooking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      res.status(200).json({
+        message: "Booking has been deleted successfully",
+        data: deletedBooking,
+      });
+    } catch (error) {
+      console.error("Booking deletion failed:", error);
+      res.status(500).json({
+        message: "Failed to delete booking",
+        error: error.message,
+      });
+    }
+  }
 }

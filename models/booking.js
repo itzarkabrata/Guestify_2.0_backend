@@ -34,7 +34,16 @@ const bookingSchema = new Schema({
     type: String,
     default: null,
     trim: true,
-  }
+  },
+  canceled_at: {
+    type: Date,
+    default: null,
+  },
+  canceled_by: {
+    type: String,
+    default: null,
+    trim: true,
+  },
 }, { timestamps: true });
 
 export const Booking_Model = mongoose.model('Booking', bookingSchema);
