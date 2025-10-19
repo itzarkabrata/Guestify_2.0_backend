@@ -16,14 +16,19 @@ export class Booking {
         throw new Error("Database server is not connected properly");
       }
 
-      if(req?.user?.is_admin){
-        return res.status(403).json({ message: "Admins are not allowed to create bookings" });
+      if (req?.user?.is_admin) {
+        return res
+          .status(403)
+          .json({ message: "Admins are not allowed to create bookings" });
       }
 
       // Extract data from body
       const { room_id, user_id, admin_id, persons } = req.body;
 
-      // console.log("Booking Request Body:", req.body);
+      // console files
+      // console.log("Booking Request Files:", req.files);
+
+      // console.log("Booking Request Files:", qs.parse(req.body));
 
       // User email
       const user_email = req.user?.email;
@@ -57,7 +62,7 @@ export class Booking {
         return res.status(400).json({ message: "Invalid Admin ID format" });
       }
 
-      const admin = await User_Model.findById({_id: admin_id },{email: 1});
+      const admin = await User_Model.findById({ _id: admin_id });
 
       const booking = await Booking_Model.create([
         {
@@ -84,52 +89,63 @@ export class Booking {
       await session.commitTransaction();
       session.endSession();
 
-      // //creating event for new booking
-      // const msg = JSON.stringify(
-      //   EventObj.createEventObj(
-      //     "transactional",
-      //     `New Booking Created Successfully`,
-      //     false,
-      //     "success",
-      //     user_id,
-      //     req.headers["devicetoken"]
-      //   )
-      // );
+      //creating event for new booking
+      const msg = JSON.stringify(
+        EventObj.createEventObj(
+          "transactional",
+          `New Booking Created Successfully`,
+          false,
+          "success",
+          user_id,
+          req.headers["devicetoken"]
+        )
+      );
 
-      // // creating email event for the user who created the booking
-      // const email_msg_user = JSON.stringify(
-      //   EventObj.createMailEventObj(
-      //     user_email,
-      //     "New Booking has been created successfully",
-      //     "new-booking-user",
-      //     {
-            
-      //     },
-      //     "New Booking Enlisted Successfully",
-      //     "Booking not Enlisted Successfully"
-      //   )
-      // );
+      // creating email event for the user who created the booking
+      const email_msg_user = JSON.stringify(
+        EventObj.createMailEventObj(
+          user_email,
+          "New Booking has been created successfully",
+          "user-booking",
+          {
+            user_name: req.user?.name || "User",
+            booking_date: new Date().toDateString(),
+            room_id: room_id,
+            booking_id: booking[0]._id,
+            user_booking_url: "/",
+            persons: persons,
+          },
+          "New Booking Enlisted Successfully",
+          "Booking not Enlisted Successfully"
+        )
+      );
 
-      // // creating email event for the admin who is managing the pg
-      // const email_msg_admin = JSON.stringify(
-      //   EventObj.createMailEventObj(
-      //     admin?.email,
-      //     "A new Booking request has been made for your Paying Guest House",
-      //     "new-booking-admin",
-      //     {
-            
-      //     },
-      //     "Mail Sent to the Recipient",
-      //     "Failed to send Mail to the Recipient"
-      //   )
-      // );
+      // creating email event for the admin who is managing the pg
+      const email_msg_admin = JSON.stringify(
+        EventObj.createMailEventObj(
+          admin?.email,
+          "A new Booking request has been made for your Paying Guest House",
+          "admin-booking",
+          {
+            admin_name: admin?.first_name || "Admin",
+            user_name: req.user?.name || "User",
+            booking_date: new Date().toDateString(),
+            room_id: room_id,
+            booking_id: booking[0]._id,
+            admin_booking_url: "/",
+            persons: persons,
+          },
+          "Mail Sent to the Recipient",
+          "Failed to send Mail to the Recipient"
+        )
+      );
 
-      // //publishing to amqp server
-      // AMQP.publishMsg("noti-queue", msg);
+      //publishing to amqp server
+      AMQP.publishMsg("noti-queue", msg);
 
-      // // publish to the email queue
-      // AMQP.publishEmail("email-queue", email_msg_user);
-      // AMQP.publishEmail("email-queue", email_msg_admin);
+      // publish to the email queue
+      AMQP.publishEmail("email-queue", email_msg_user);
+      AMQP.publishEmail("email-queue", email_msg_admin);
 
       res.status(201).json({
         message: "Booking created successfully",
