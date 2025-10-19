@@ -237,6 +237,8 @@ export class User {
               message: "User Logged in successfully",
               data: {
                 token: token,
+                user_id: res_user[0]._id,
+                is_admin: res_user[0].is_admin,
               },
             });
           } else {
