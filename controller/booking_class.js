@@ -8,6 +8,102 @@ import { User_Model } from "../models/users.js";
 import { RoomInfo_Model } from "../models/roominfo.js";
 
 export class Booking {
+
+  static async getAllBookings(req, res) {
+  try {
+    if (!(await Database.isConnected())) {
+      throw new Error("Database server is not connected properly");
+    }
+
+    const bookings = await Booking_Model.aggregate([
+      // Join with User collection
+      {
+        $match: { admin_id: new mongoose.Types.ObjectId(String(req?.user?.id)) },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "user_id",
+          foreignField: "_id",
+          as: "user_info",
+        },
+      },
+      { $unwind: "$user_info" },
+
+      // Join with Habitate collection
+      {
+        $lookup: {
+          from: "habitates",
+          localField: "_id",
+          foreignField: "booking_id",
+          as: "habitates",
+        },
+      },
+
+      // Add computed fields
+      {
+        $addFields: {
+          status: {
+            $switch: {
+              branches: [
+                { case: { $ne: ["$accepted_at", null] }, then: "accepted" },
+                { case: { $ne: ["$declined_at", null] }, then: "declined" },
+                { case: { $ne: ["$canceled_at", null] }, then: "canceled" },
+                { case: { $ne: ["$revolked_at", null] }, then: "revolked" },
+              ],
+              default: "pending",
+            },
+          },
+          person_number: { $size: "$habitates" },
+        },
+      },
+
+      // Conditionally add accepted_at or declined_at fields
+      {
+        $addFields: {
+          accepted_at_field: {
+            $cond: [{ $eq: ["$status", "accepted"] }, "$accepted_at", null],
+          },
+          declined_at_field: {
+            $cond: [{ $eq: ["$status", "declined"] }, "$declined_at", null],
+          },
+        },
+      },
+
+      // Final projection
+      {
+        $project: {
+          _id: 0,
+          booking_id: "$_id",
+          booking_date: "$createdAt",
+          user_name: {
+            $concat: ["$user_info.first_name", " ", "$user_info.last_name"],
+          },
+          user_image: "$user_info.image_url",
+          user_address: "$user_info.address",
+          status: 1,
+          person_number: 1,
+          accepted_at: "$accepted_at_field",
+          declined_at: "$declined_at_field",
+        },
+      },
+
+      { $sort: { booking_date: -1 } },
+    ]);
+
+    res.status(200).json({
+      message: "Bookings fetched successfully",
+      data: bookings,
+    });
+  } catch (error) {
+    console.error("Fetching bookings failed:", error);
+    res.status(500).json({
+      message: "Failed to fetch bookings",
+      error: error.message,
+    });
+  }
+}
+
   
   static async createBooking(req, res) {
     const session = await mongoose.startSession();

@@ -5,6 +5,9 @@ import { Download_Doc } from "../controller/download_doc_class.js";
 
 const router = Router();
 
+// Get All Bookings
+router.get("/booking/list", User.isLoggedIn, Booking.getAllBookings);
+
 // Create Booking
 router.post("/booking/create", User.isLoggedIn, Booking.createBooking);
 
