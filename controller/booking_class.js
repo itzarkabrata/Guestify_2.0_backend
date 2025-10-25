@@ -5,9 +5,10 @@ import { Habitate } from "./habitates_class.js";
 import { EventObj } from "../lib/event.config.js";
 import { AMQP } from "../lib/amqp.connect.js";
 import { User_Model } from "../models/users.js";
-import qs from "qs";
+import { RoomInfo_Model } from "../models/roominfo.js";
 
 export class Booking {
+  
   static async createBooking(req, res) {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -23,15 +24,51 @@ export class Booking {
       }
 
       // Extract data from body
-      const { room_id, user_id, admin_id, persons } = req.body;
-
-      // console files
-      // console.log("Booking Request Files:", req.files);
-
-      // console.log("Booking Request Files:", qs.parse(req.body));
+      const { room_id, persons, start_date, duration, remarks="" } = req.body;
 
       // User email
       const user_email = req.user?.email;
+      // User ID
+      const user_id = req.user?.id;
+
+      // Same user can not book same room again if previous booking is not canceled/declined/revolked
+      const existingBooking = await Booking_Model.findOne({
+        room_id: room_id,
+        user_id: user_id,
+        canceled_at: null,
+        declined_at: null,
+        revolked_at: null,
+      });
+
+      if (existingBooking) {
+        return res.status(400).json({
+          message:
+            "You already have an active booking for this room. Please cancel, decline, or revolk the existing booking before creating a new one.",
+        });
+      }
+
+      // Admin ID
+      const result = await RoomInfo_Model.aggregate([
+        {
+          $match: { _id: new mongoose.Types.ObjectId(String(room_id)) },
+        },
+        {
+          $lookup: {
+            from: "pginfos",
+            localField: "pg_id",
+            foreignField: "_id",
+            as: "pg_data",
+          },
+        },
+        { $unwind: "$pg_data" },
+        {
+          $project: {
+            admin_id: "$pg_data.user_id",
+          },
+        },
+      ]);
+
+      const admin_id = result[0]?.admin_id;
 
       if (!room_id) {
         return res.status(400).json({ message: "Room ID is required" });
@@ -41,6 +78,12 @@ export class Booking {
       }
       if (!admin_id) {
         return res.status(400).json({ message: "Admin ID is required" });
+      }
+      if(!start_date) {
+        return res.status(400).json({ message: "Start date is required" });
+      }
+      if (!duration) {
+        return res.status(400).json({ message: "Duration is required" });
       }
       if (!Array.isArray(persons)) {
         return res.status(400).json({ message: "Persons must be an array" });
@@ -69,10 +112,19 @@ export class Booking {
           room_id,
           user_id,
           admin_id,
+          start_date,
+          duration,
           accepted_at: null,
           accepted_by: null,
           declined_at: null,
           declined_by: null,
+          canceled_at: null,
+          canceled_by: null,
+          revolked_at: null,
+          revolked_by: null,
+          revolked_reason: "",
+          remarks: remarks,
+          payment_at: null,
         },
       ]);
 
@@ -83,7 +135,7 @@ export class Booking {
           ...data,
           booking_id: booking[0]._id,
         };
-        await Habitate.createHabitate(personInfo, req, index);
+        await Habitate.createHabitate(personInfo, req, index, session);
       }
 
       await session.commitTransaction();
@@ -177,36 +229,55 @@ export class Booking {
       }
 
       const { book_id } = req.params;
-      const { status } = req.body;
-      const validStatus = ["accepted", "declined"];
+      const { status, reason = "" } = req.body;
+
+      // Allowed status values
+      const validStatus = ["accepted", "declined", "canceled", "revolked"];
+
       if (!validStatus.includes(status)) {
-        return res
-          .status(400)
-          .json({
-            message: `Invalid status value, value can be either ${validStatus.join(
-              " or "
-            )}`,
-          });
+        return res.status(400).json({
+          message: `Invalid status value, value can be either ${validStatus.join(
+            " or "
+          )}`,
+        });
       }
 
-      const updateFields =
-        status === "accepted"
-          ? {
-              accepted_at: new Date(),
-              accepted_by: id,
-              declined_at: null,
-              declined_by: null,
-            }
-          : {
-              declined_at: new Date(),
-              declined_by: id,
-              accepted_at: null,
-              accepted_by: null,
-            };
+      // get status object by action
+      let updatedStatus = {};
+
+      switch (status) {
+        case "accepted":
+          updatedStatus = {
+            accepted_at: new Date(),
+            accepted_by: id,
+          };
+          break;
+        case "declined":
+          updatedStatus = {
+            declined_at: new Date(),
+            declined_by: id,
+          };
+          break;
+        case "canceled":
+          updatedStatus = {
+            canceled_at: new Date(),
+            canceled_by: id,
+          };
+          break;
+        case "revolked":
+          updatedStatus = {
+            revolked_at: new Date(),
+            revolked_by: id,
+            revolked_reason: reason || "",
+          };
+          break;
+        default:
+          break;
+      }
 
       const updatedBooking = await Booking_Model.findByIdAndUpdate(
         book_id,
-        updateFields,
+        updatedStatus,
         { new: true }
       );
 
@@ -260,7 +331,6 @@ export class Booking {
         message: "Booking has been canceled successfully",
         data: canceledBooking,
       });
-
     } catch (error) {
       console.error("Booking cancellation failed:", error);
       res.status(500).json({
@@ -292,4 +362,56 @@ export class Booking {
       });
     }
   }
+
+  static async getBookingDetails(req, res) {
+  try {
+    if (!(await Database.isConnected())) {
+      throw new Error("Database server is not connected properly");
+    }
+
+    const { booking_id } = req.params;
+
+    if (!booking_id) {
+      return res.status(400).json({ message: "Booking ID is required" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(booking_id)) {
+      return res.status(400).json({ message: "Invalid Booking ID format" });
+    }
+
+    const bookingData = await Booking_Model.aggregate([
+      {
+        $match: { _id: new mongoose.Types.ObjectId(String(booking_id)) }
+      },
+      {
+        $lookup: {
+          from: "habitates", 
+          localField: "_id",
+          foreignField: "booking_id",
+          as: "persons"
+        }
+      },
+      {
+        $limit: 1
+      }
+    ]);
+
+    if (!bookingData || bookingData.length === 0) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    res.status(200).json({
+      message: "Booking Details Fetched Successfully",
+      data: bookingData[0],
+    });
+
+  } catch (error) {
+    console.error("Booking details fetch failed:", error);
+    res.status(500).json({
+      message: "Error Fetching Booking Details",
+      error: error.message,
+    });
+  }
+}
+
 }
