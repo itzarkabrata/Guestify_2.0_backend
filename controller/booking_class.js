@@ -15,11 +15,20 @@ export class Booking {
       throw new Error("Database server is not connected properly");
     }
 
-    const bookings = await Booking_Model.aggregate([
+    // Extract query params with defaults
+    const page = parseInt(req.query.page) || 1;
+    const show = parseInt(req.query.show) || 10;
+    const filter = req.query.filter?.trim().toLowerCase() || "all";
+    const search = req.query.search?.trim() || "";
+
+    const matchStage = {
+      admin_id: new mongoose.Types.ObjectId(String(req?.user?.id)),
+    };
+
+    const aggregationPipeline = [
+      { $match: matchStage },
+
       // Join with User collection
-      {
-        $match: { admin_id: new mongoose.Types.ObjectId(String(req?.user?.id)) },
-      },
       {
         $lookup: {
           from: "users",
@@ -58,7 +67,42 @@ export class Booking {
         },
       },
 
-      // Conditionally add accepted_at or declined_at fields
+      // Filter by search (user name or address)
+      ...(search
+        ? [
+            {
+              $match: {
+                $or: [
+                  {
+                    "user_info.first_name": {
+                      $regex: search,
+                      $options: "i",
+                    },
+                  },
+                  {
+                    "user_info.last_name": {
+                      $regex: search,
+                      $options: "i",
+                    },
+                  },
+                  {
+                    "user_info.address": {
+                      $regex: search,
+                      $options: "i",
+                    },
+                  },
+                ],
+              },
+            },
+          ]
+        : []),
+
+      // Filter by status
+      ...(filter !== "all"
+        ? [{ $match: { status: filter } }]
+        : []),
+
+      // Conditionally add accepted_at or declined_at
       {
         $addFields: {
           accepted_at_field: {
@@ -70,7 +114,7 @@ export class Booking {
         },
       },
 
-      // Final projection
+      // Projection
       {
         $project: {
           _id: 0,
@@ -89,11 +133,34 @@ export class Booking {
       },
 
       { $sort: { booking_date: -1 } },
-    ]);
+    ];
+
+    // ✅ Add pagination using $facet
+    aggregationPipeline.push({
+      $facet: {
+        data: [
+          { $skip: (page - 1) * show },
+          { $limit: show },
+        ],
+        totalCount: [{ $count: "count" }],
+      },
+    });
+
+    const result = await Booking_Model.aggregate(aggregationPipeline);
+    const bookings = result[0]?.data || [];
+    const totalCount = result[0]?.totalCount[0]?.count || 0;
 
     res.status(200).json({
       message: "Bookings fetched successfully",
-      data: bookings,
+      data: {
+        total: totalCount,
+        page,
+        per_page: show,
+        total_pages: Math.ceil(totalCount / show),
+        filter,
+        search,
+        bookings: bookings,
+      },
     });
   } catch (error) {
     console.error("Fetching bookings failed:", error);
@@ -103,6 +170,7 @@ export class Booking {
     });
   }
 }
+
 
   
   static async createBooking(req, res) {
