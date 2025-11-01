@@ -86,7 +86,7 @@ export class Room {
     if (!mongoose.Types.ObjectId.isValid(pg_id))
       throw new TypeError("PG ID must be a valid ObjectId format");
 
-    const new_room = new RoomInfo_Model({ ...room });
+    const new_room = new RoomInfo_Model({ ...room, booked_by: null, booking_status: "" });
 
     const savedRoom = await new_room.save();
 

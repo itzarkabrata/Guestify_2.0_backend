@@ -68,6 +68,15 @@ const roomInfoSchema = new Schema(
       ref: "PgInfo",
       required: [true, "PG ID is required"],
     },
+    booked_by: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    booking_status: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );
