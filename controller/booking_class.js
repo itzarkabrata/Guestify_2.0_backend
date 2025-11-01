@@ -49,6 +49,28 @@ export class Booking {
           },
         },
 
+        // Join With Room
+        {
+          $lookup: {
+            from: "roominfos",
+            localField: "room_id",
+            foreignField: "_id",
+            as: "room_info",
+          },
+        },
+        { $unwind: "$room_info" },
+
+        // Join With Pg
+        {
+          $lookup: {
+            from: "pginfos",
+            localField: "room_info.pg_id",
+            foreignField: "_id",
+            as: "pg_info",
+          },
+        },
+        { $unwind: "$pg_info" },
+
         // Add computed fields
         {
           $addFields: {
@@ -127,6 +149,9 @@ export class Booking {
             person_number: 1,
             accepted_at: "$accepted_at_field",
             declined_at: "$declined_at_field",
+
+            pg_name: "$pg_info.pg_name",
+            room_type: "$room_info.room_type",
           },
         },
 
@@ -397,7 +422,7 @@ export class Booking {
 
       // CHECK- 2 ==> if the room is already booked then it is not accepted
       const targetRoom = await RoomInfo_Model.findById(room_id);
-      if (targetRoom?.booked_by !==null || targetRoom?.booking_status !== "") {
+      if (targetRoom?.booked_by !== null || targetRoom?.booking_status !== "") {
         throw new Error("This Room has already been booked by other user");
       }
 
@@ -520,9 +545,7 @@ export class Booking {
       const room_id = String(booking_info?.room_id);
 
       // CHECK- 2 ==> if there's an active payment request for this booking, it can not be revolked
-      const existingPaymentReq = await redisClient.get(
-        `payment-${room_id}`
-      );
+      const existingPaymentReq = await redisClient.get(`payment-${room_id}`);
       if (existingPaymentReq) {
         throw new Error(
           "This booking has an active payment request and can not be revolked."
@@ -794,22 +817,20 @@ export class Booking {
       if (!(await Database.isConnected())) {
         throw new Error("Database server is not connected properly");
       }
-      
+
       const { booking_id } = req?.params;
-      
+
       const booking_info = await Booking_Model.findById(booking_id);
-      
+
       if (!booking_info) {
         return res.status(404).json({ message: "Booking not found" });
       }
 
       const room_id = String(booking_info?.room_id);
-      
+
       // Check if there's an active payment session for that booking for a perticular room
       /* If there's active booking session then delete it , if not then throw error */
-      const existingPaymentReq = await redisClient.get(
-        `payment-${room_id}`
-      );
+      const existingPaymentReq = await redisClient.get(`payment-${room_id}`);
       if (!existingPaymentReq) {
         throw new Error(
           "There's no active payment session under this booking id"
@@ -819,9 +840,8 @@ export class Booking {
       }
 
       res.status(200).json({
-        message: "Payment Session Closed Successfully"
-      })
-
+        message: "Payment Session Closed Successfully",
+      });
     } catch (error) {
       console.error("Error while cancelling Payment Session", error);
       res.status(500).json({

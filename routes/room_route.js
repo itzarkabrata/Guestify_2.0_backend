@@ -7,5 +7,8 @@ const router = Router();
 // === DELETE
 router.delete("/deleteRoom/:roomid",User.isLoggedIn, Room.DeleteRoom);
 
+// Get rooms By ID
+router.get("/room/:roomid",User.isLoggedIn, Room.getRoomDetails);
+
 
 export const room_router = router;
