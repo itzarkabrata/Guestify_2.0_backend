@@ -6,6 +6,7 @@ import { EventObj } from "../lib/event.config.js";
 import { AMQP } from "../lib/amqp.connect.js";
 import { User_Model } from "../models/users.js";
 import { RoomInfo_Model } from "../models/roominfo.js";
+import { redisClient } from "../lib/redis.config.js";
 
 export class Booking {
 
@@ -379,7 +380,164 @@ export class Booking {
     }
   }
 
+  async makeBookingAccepted(acc_id, book_id, booking_info, payment_details, session) {
+    try {
+
+      /* CHECKINGS BEFORE ACCEPTING */
+
+      // CHECK- 1 ==> Only bokkings that are declined, accepted can not be accepted again
+      if(booking_info.accepted_by || booking_info.declined_by) {
+        throw new Error("Only pending bookings can be accepted");
+      }
+
+      const { amount, payment_dunning, message="" } = payment_details;
+      const room_id = String(booking_info?.room_id);
+
+      // CHECK- 2 ==> if there's already an active booking for the same room, by another user, that is accepted
+      const existingPaymentReq = await redisClient.get(`payment-${book_id}-${room_id}`);
+      if(existingPaymentReq) {
+        throw new Error("This booking already has an active payment request.");
+      }
+
+      // CHECK- 3 ==> Payment details must be provided to accept the booking
+      if(!payment_details || Object.keys(payment_details).length === 0) {
+        throw new Error("Payment details are required to accept the booking");
+      }
+
+      // Validate payment details
+      if (!room_id || !mongoose.Types.ObjectId.isValid(room_id)) {
+        throw new Error("Invalid or missing Room ID in payment details");
+      }
+      if (!amount || typeof amount !== "number" || amount <= 0) {
+        throw new Error("Invalid or missing amount in payment details");
+      }
+      /* Payment dunning will always be in days */
+      if (!payment_dunning || typeof payment_dunning !== "number" || payment_dunning <= 0) {
+        throw new Error("Invalid or missing payment dunning in payment details");
+      }
+
+      const payment_info = JSON.stringify({
+        room_id,
+        amount,
+        payment_dunning,
+        message,
+      });
+
+      // Store payment info as stringified JSON in the redis so far as the payment only valid for payment dunning days
+      await redisClient.set(`payment-${book_id}-${room_id}`, payment_info, "EX", payment_dunning * 24 * 60 * 60);
+
+      const updatedStatus = {
+        accepted_at: new Date(),
+        accepted_by: acc_id,
+      };
+
+      const updatedBooking = await Booking_Model.findByIdAndUpdate(
+        book_id,
+        updatedStatus,
+        { new: true , session }
+      );
+
+      if (!updatedBooking) {
+        throw new Error("Booking not found");
+      }
+
+      // Update the RoomInfo to set booked_by and booking_status
+      const updated_room = await RoomInfo_Model.findByIdAndUpdate(
+        room_id,
+        {
+          booked_by: acc_id,
+          booking_status: "Room Booked: Payment Pending",
+        },
+        { session }
+      );
+
+      if(!updated_room) {
+        throw new Error("Failed to update room booking status");
+      }
+
+      return updatedBooking;
+
+    } catch (error) {
+      throw new Error("Error accepting booking: " + error.message);
+    }
+  }
+
+  async makeBookingDeclined(acc_id, book_id, booking_info, session) {
+    try {
+      /* CHECKING BEFORE DECLINE A BOOKING */
+
+      // CHECK -1 ==> Only bokkings that are accepted, revolked can not be declined again
+      if(booking_info.accepted_by || booking_info.revolked_by) {
+        throw new Error("Only pending bookings can be declined");
+      }
+
+      const room_id = String(booking_info?.room_id);
+
+      // CHECK- 2 ==> if there's an active payment request for this booking, it can not be declined
+      const existingPaymentReq = await redisClient.get(`payment-${book_id}-${room_id}`);
+      if(existingPaymentReq) {
+        throw new Error("This booking has an active payment request and can not be declined.");
+      }
+
+      const updatedStatus = {
+        declined_at: new Date(),
+        declined_by: acc_id,
+      };
+
+      const updatedBooking = await Booking_Model.findByIdAndUpdate(
+        book_id,
+        updatedStatus,
+        { new: true, session }
+      );
+
+      if (!updatedBooking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+    } catch (error) {
+      throw new Error("Error declining booking: " + error.message);
+    }
+  }
+
+  async makeBookingRevolked(acc_id, book_id, booking_info, reason, session) {
+    try {
+      /* CHECKING BEFORE REVOLKING A BOOKING */
+
+      // CHECK -1 ==> Only Bookings that are accepted can be revolked
+      if(!booking_info.accepted_by) {
+        throw new Error("Only accepted bookings can be revolked");
+      }
+
+      const room_id = String(booking_info?.room_id);
+
+      // CHECK- 2 ==> if there's an active payment request for this booking, it can not be revolked
+      const existingPaymentReq = await redisClient.get(`payment-${book_id}-${room_id}`);
+      if(existingPaymentReq) {
+        throw new Error("This booking has an active payment request and can not be revolked.");
+      }
+
+      const updatedStatus = {
+        revolked_at: new Date(),
+        revolked_by: acc_id,
+        revolked_reason: reason || "",
+      };
+
+      const updatedBooking = await Booking_Model.findByIdAndUpdate(
+        book_id,
+        updatedStatus,
+        { new: true, session }
+      );
+
+      if (!updatedBooking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+    } catch (error) {
+      throw new Error("Error revolking booking: " + error.message);
+    }
+  }
+
   static async changeBookingStatus(req, res) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
       if (!(await Database.isConnected())) {
         throw new Error("Database server is not connected properly");
@@ -393,10 +551,17 @@ export class Booking {
       }
 
       const { book_id } = req.params;
-      const { status, reason = "" } = req.body;
+
+      const booking_info = await Booking_Model.findById(book_id);
+
+      if (!booking_info) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const { status, reason = "", payment_details = {} } = req.body;
 
       // Allowed status values
-      const validStatus = ["accepted", "declined", "canceled", "revolked"];
+      const validStatus = ["accepted", "declined", "revolked"];
 
       if (!validStatus.includes(status)) {
         return res.status(400).json({
@@ -406,54 +571,33 @@ export class Booking {
         });
       }
 
-      // get status object by action
-      let updatedStatus = {};
+      let res_data = {};
 
       switch (status) {
         case "accepted":
-          updatedStatus = {
-            accepted_at: new Date(),
-            accepted_by: id,
-          };
+          res_data = await new Booking().makeBookingAccepted(id, book_id, booking_info, payment_details, session);
           break;
         case "declined":
-          updatedStatus = {
-            declined_at: new Date(),
-            declined_by: id,
-          };
-          break;
-        case "canceled":
-          updatedStatus = {
-            canceled_at: new Date(),
-            canceled_by: id,
-          };
+          res_data = await new Booking().makeBookingDeclined(id, book_id, booking_info, session);
           break;
         case "revolked":
-          updatedStatus = {
-            revolked_at: new Date(),
-            revolked_by: id,
-            revolked_reason: reason || "",
-          };
+          res_data = await new Booking().makeBookingRevolked(id, book_id, booking_info, reason, session);
           break;
         default:
           break;
       }
 
-      const updatedBooking = await Booking_Model.findByIdAndUpdate(
-        book_id,
-        updatedStatus,
-        { new: true }
-      );
-
-      if (!updatedBooking) {
-        return res.status(404).json({ message: "Booking not found" });
-      }
+      await session.commitTransaction();
+      session.endSession();
 
       res.status(200).json({
         message: `Booking has been ${status} successfully`,
-        data: updatedBooking,
+        data: res_data,
       });
     } catch (error) {
+      session.abortTransaction();
+      session.endSession();
+
       console.error("Booking status change failed:", error);
       res.status(500).json({
         message: "Failed to change booking status",
