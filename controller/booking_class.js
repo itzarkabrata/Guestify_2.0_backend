@@ -9,6 +9,170 @@ import { RoomInfo_Model } from "../models/roominfo.js";
 import { redisClient } from "../lib/redis.config.js";
 
 export class Booking {
+
+  static async getAllBookings(req, res) {
+  try {
+    if (!(await Database.isConnected())) {
+      throw new Error("Database server is not connected properly");
+    }
+
+    // Extract query params with defaults
+    const page = parseInt(req.query.page) || 1;
+    const show = parseInt(req.query.show) || 10;
+    const filter = req.query.filter?.trim().toLowerCase() || "all";
+    const search = req.query.search?.trim() || "";
+
+    const matchStage = {
+      admin_id: new mongoose.Types.ObjectId(String(req?.user?.id)),
+    };
+
+    const aggregationPipeline = [
+      { $match: matchStage },
+
+      // Join with User collection
+      {
+        $lookup: {
+          from: "users",
+          localField: "user_id",
+          foreignField: "_id",
+          as: "user_info",
+        },
+      },
+      { $unwind: "$user_info" },
+
+      // Join with Habitate collection
+      {
+        $lookup: {
+          from: "habitates",
+          localField: "_id",
+          foreignField: "booking_id",
+          as: "habitates",
+        },
+      },
+
+      // Add computed fields
+      {
+        $addFields: {
+          status: {
+            $switch: {
+              branches: [
+                { case: { $ne: ["$accepted_at", null] }, then: "accepted" },
+                { case: { $ne: ["$declined_at", null] }, then: "declined" },
+                { case: { $ne: ["$canceled_at", null] }, then: "canceled" },
+                { case: { $ne: ["$revolked_at", null] }, then: "revolked" },
+              ],
+              default: "pending",
+            },
+          },
+          person_number: { $size: "$habitates" },
+        },
+      },
+
+      // Filter by search (user name or address)
+      ...(search
+        ? [
+            {
+              $match: {
+                $or: [
+                  {
+                    "user_info.first_name": {
+                      $regex: search,
+                      $options: "i",
+                    },
+                  },
+                  {
+                    "user_info.last_name": {
+                      $regex: search,
+                      $options: "i",
+                    },
+                  },
+                  {
+                    "user_info.address": {
+                      $regex: search,
+                      $options: "i",
+                    },
+                  },
+                ],
+              },
+            },
+          ]
+        : []),
+
+      // Filter by status
+      ...(filter !== "all"
+        ? [{ $match: { status: filter } }]
+        : []),
+
+      // Conditionally add accepted_at or declined_at
+      {
+        $addFields: {
+          accepted_at_field: {
+            $cond: [{ $eq: ["$status", "accepted"] }, "$accepted_at", null],
+          },
+          declined_at_field: {
+            $cond: [{ $eq: ["$status", "declined"] }, "$declined_at", null],
+          },
+        },
+      },
+
+      // Projection
+      {
+        $project: {
+          _id: 0,
+          booking_id: "$_id",
+          booking_date: "$createdAt",
+          user_name: {
+            $concat: ["$user_info.first_name", " ", "$user_info.last_name"],
+          },
+          user_image: "$user_info.image_url",
+          user_address: "$user_info.address",
+          status: 1,
+          person_number: 1,
+          accepted_at: "$accepted_at_field",
+          declined_at: "$declined_at_field",
+        },
+      },
+
+      { $sort: { booking_date: -1 } },
+    ];
+
+    // ✅ Add pagination using $facet
+    aggregationPipeline.push({
+      $facet: {
+        data: [
+          { $skip: (page - 1) * show },
+          { $limit: show },
+        ],
+        totalCount: [{ $count: "count" }],
+      },
+    });
+
+    const result = await Booking_Model.aggregate(aggregationPipeline);
+    const bookings = result[0]?.data || [];
+    const totalCount = result[0]?.totalCount[0]?.count || 0;
+
+    res.status(200).json({
+      message: "Bookings fetched successfully",
+      data: {
+        total: totalCount,
+        page,
+        per_page: show,
+        total_pages: Math.ceil(totalCount / show),
+        filter,
+        search,
+        bookings: bookings,
+      },
+    });
+  } catch (error) {
+    console.error("Fetching bookings failed:", error);
+    res.status(500).json({
+      message: "Failed to fetch bookings",
+      error: error.message,
+    });
+  }
+}
+
+
   
   static async createBooking(req, res) {
     const session = await mongoose.startSession();
