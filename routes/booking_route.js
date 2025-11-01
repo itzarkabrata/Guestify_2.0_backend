@@ -26,4 +26,7 @@ router.get("/booking/:booking_id/details", User.isLoggedIn, Booking.getBookingDe
 // Download Booking Document PDF
 router.get("/booking/:booking_id/download", User.isLoggedIn, Download_Doc.downloadBookingDocument);
 
+// Cancel Payment Session
+router.patch("/booking/:booking_id/payment/close", User.isLoggedIn, Booking.cancelPaymentSession);
+
 export const booking_router = router;
