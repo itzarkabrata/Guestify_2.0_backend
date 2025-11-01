@@ -286,6 +286,45 @@ export class Room {
     }
   }
 
+  static async getRoomDetails(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { roomid } = req.params;
+      const user_id = req.user.id;
+
+      if (!user_id) {
+        throw new Error("User ID not found in request");
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(roomid)) {
+        throw new TypeError("Invalid Room ID format");
+      }
+
+      const details = await RoomInfo_Model.findById(roomid);
+
+      if(!details){
+        res?.status(404)?.json({
+          message: "Room Details Not Found"
+        })
+      }
+
+      res.status(200).json({
+        message: "Room Details Fetched Successfully",
+        data: details
+      });
+    } catch (error) {
+      console.error(error.message);
+
+      res.status(500).json({
+        message: "Failed to fetch PG Room Details",
+        error: error.message,
+      });
+    }
+  }
+
   static async GetMinimumRoomRent(pg_id) {
     const result = await RoomInfo_Model.aggregate([
       { $match: { pg_id: pg_id } },
