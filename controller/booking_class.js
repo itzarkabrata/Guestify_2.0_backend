@@ -9,171 +9,163 @@ import { RoomInfo_Model } from "../models/roominfo.js";
 import { redisClient } from "../lib/redis.config.js";
 
 export class Booking {
-
   static async getAllBookings(req, res) {
-  try {
-    if (!(await Database.isConnected())) {
-      throw new Error("Database server is not connected properly");
-    }
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
 
-    // Extract query params with defaults
-    const page = parseInt(req.query.page) || 1;
-    const show = parseInt(req.query.show) || 10;
-    const filter = req.query.filter?.trim().toLowerCase() || "all";
-    const search = req.query.search?.trim() || "";
+      // Extract query params with defaults
+      const page = parseInt(req.query.page) || 1;
+      const show = parseInt(req.query.show) || 10;
+      const filter = req.query.filter?.trim().toLowerCase() || "all";
+      const search = req.query.search?.trim() || "";
 
-    const matchStage = {
-      admin_id: new mongoose.Types.ObjectId(String(req?.user?.id)),
-    };
+      const matchStage = {
+        admin_id: new mongoose.Types.ObjectId(String(req?.user?.id)),
+      };
 
-    const aggregationPipeline = [
-      { $match: matchStage },
+      const aggregationPipeline = [
+        { $match: matchStage },
 
-      // Join with User collection
-      {
-        $lookup: {
-          from: "users",
-          localField: "user_id",
-          foreignField: "_id",
-          as: "user_info",
-        },
-      },
-      { $unwind: "$user_info" },
-
-      // Join with Habitate collection
-      {
-        $lookup: {
-          from: "habitates",
-          localField: "_id",
-          foreignField: "booking_id",
-          as: "habitates",
-        },
-      },
-
-      // Add computed fields
-      {
-        $addFields: {
-          status: {
-            $switch: {
-              branches: [
-                { case: { $ne: ["$accepted_at", null] }, then: "accepted" },
-                { case: { $ne: ["$declined_at", null] }, then: "declined" },
-                { case: { $ne: ["$canceled_at", null] }, then: "canceled" },
-                { case: { $ne: ["$revolked_at", null] }, then: "revolked" },
-              ],
-              default: "pending",
-            },
+        // Join with User collection
+        {
+          $lookup: {
+            from: "users",
+            localField: "user_id",
+            foreignField: "_id",
+            as: "user_info",
           },
-          person_number: { $size: "$habitates" },
         },
-      },
+        { $unwind: "$user_info" },
 
-      // Filter by search (user name or address)
-      ...(search
-        ? [
-            {
-              $match: {
-                $or: [
-                  {
-                    "user_info.first_name": {
-                      $regex: search,
-                      $options: "i",
-                    },
-                  },
-                  {
-                    "user_info.last_name": {
-                      $regex: search,
-                      $options: "i",
-                    },
-                  },
-                  {
-                    "user_info.address": {
-                      $regex: search,
-                      $options: "i",
-                    },
-                  },
+        // Join with Habitate collection
+        {
+          $lookup: {
+            from: "habitates",
+            localField: "_id",
+            foreignField: "booking_id",
+            as: "habitates",
+          },
+        },
+
+        // Add computed fields
+        {
+          $addFields: {
+            status: {
+              $switch: {
+                branches: [
+                  { case: { $ne: ["$accepted_at", null] }, then: "accepted" },
+                  { case: { $ne: ["$declined_at", null] }, then: "declined" },
+                  { case: { $ne: ["$canceled_at", null] }, then: "canceled" },
+                  { case: { $ne: ["$revolked_at", null] }, then: "revolked" },
                 ],
+                default: "pending",
               },
             },
-          ]
-        : []),
-
-      // Filter by status
-      ...(filter !== "all"
-        ? [{ $match: { status: filter } }]
-        : []),
-
-      // Conditionally add accepted_at or declined_at
-      {
-        $addFields: {
-          accepted_at_field: {
-            $cond: [{ $eq: ["$status", "accepted"] }, "$accepted_at", null],
-          },
-          declined_at_field: {
-            $cond: [{ $eq: ["$status", "declined"] }, "$declined_at", null],
+            person_number: { $size: "$habitates" },
           },
         },
-      },
 
-      // Projection
-      {
-        $project: {
-          _id: 0,
-          booking_id: "$_id",
-          booking_date: "$createdAt",
-          user_name: {
-            $concat: ["$user_info.first_name", " ", "$user_info.last_name"],
+        // Filter by search (user name or address)
+        ...(search
+          ? [
+              {
+                $match: {
+                  $or: [
+                    {
+                      "user_info.first_name": {
+                        $regex: search,
+                        $options: "i",
+                      },
+                    },
+                    {
+                      "user_info.last_name": {
+                        $regex: search,
+                        $options: "i",
+                      },
+                    },
+                    {
+                      "user_info.address": {
+                        $regex: search,
+                        $options: "i",
+                      },
+                    },
+                  ],
+                },
+              },
+            ]
+          : []),
+
+        // Filter by status
+        ...(filter !== "all" ? [{ $match: { status: filter } }] : []),
+
+        // Conditionally add accepted_at or declined_at
+        {
+          $addFields: {
+            accepted_at_field: {
+              $cond: [{ $eq: ["$status", "accepted"] }, "$accepted_at", null],
+            },
+            declined_at_field: {
+              $cond: [{ $eq: ["$status", "declined"] }, "$declined_at", null],
+            },
           },
-          user_image: "$user_info.image_url",
-          user_address: "$user_info.address",
-          status: 1,
-          person_number: 1,
-          accepted_at: "$accepted_at_field",
-          declined_at: "$declined_at_field",
         },
-      },
 
-      { $sort: { booking_date: -1 } },
-    ];
+        // Projection
+        {
+          $project: {
+            _id: 0,
+            booking_id: "$_id",
+            booking_date: "$createdAt",
+            user_name: {
+              $concat: ["$user_info.first_name", " ", "$user_info.last_name"],
+            },
+            user_image: "$user_info.image_url",
+            user_address: "$user_info.address",
+            status: 1,
+            person_number: 1,
+            accepted_at: "$accepted_at_field",
+            declined_at: "$declined_at_field",
+          },
+        },
 
-    // ✅ Add pagination using $facet
-    aggregationPipeline.push({
-      $facet: {
-        data: [
-          { $skip: (page - 1) * show },
-          { $limit: show },
-        ],
-        totalCount: [{ $count: "count" }],
-      },
-    });
+        { $sort: { booking_date: -1 } },
+      ];
 
-    const result = await Booking_Model.aggregate(aggregationPipeline);
-    const bookings = result[0]?.data || [];
-    const totalCount = result[0]?.totalCount[0]?.count || 0;
+      // ✅ Add pagination using $facet
+      aggregationPipeline.push({
+        $facet: {
+          data: [{ $skip: (page - 1) * show }, { $limit: show }],
+          totalCount: [{ $count: "count" }],
+        },
+      });
 
-    res.status(200).json({
-      message: "Bookings fetched successfully",
-      data: {
-        total: totalCount,
-        page,
-        per_page: show,
-        total_pages: Math.ceil(totalCount / show),
-        filter,
-        search,
-        bookings: bookings,
-      },
-    });
-  } catch (error) {
-    console.error("Fetching bookings failed:", error);
-    res.status(500).json({
-      message: "Failed to fetch bookings",
-      error: error.message,
-    });
+      const result = await Booking_Model.aggregate(aggregationPipeline);
+      const bookings = result[0]?.data || [];
+      const totalCount = result[0]?.totalCount[0]?.count || 0;
+
+      res.status(200).json({
+        message: "Bookings fetched successfully",
+        data: {
+          total: totalCount,
+          page,
+          per_page: show,
+          total_pages: Math.ceil(totalCount / show),
+          filter,
+          search,
+          bookings: bookings,
+        },
+      });
+    } catch (error) {
+      console.error("Fetching bookings failed:", error);
+      res.status(500).json({
+        message: "Failed to fetch bookings",
+        error: error.message,
+      });
+    }
   }
-}
 
-
-  
   static async createBooking(req, res) {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -189,7 +181,7 @@ export class Booking {
       }
 
       // Extract data from body
-      const { room_id, persons, start_date, duration, remarks="" } = req.body;
+      const { room_id, persons, start_date, duration, remarks = "" } = req.body;
 
       // User email
       const user_email = req.user?.email;
@@ -244,7 +236,7 @@ export class Booking {
       if (!admin_id) {
         return res.status(400).json({ message: "Admin ID is required" });
       }
-      if(!start_date) {
+      if (!start_date) {
         return res.status(400).json({ message: "Start date is required" });
       }
       if (!duration) {
@@ -381,27 +373,36 @@ export class Booking {
     }
   }
 
-  async makeBookingAccepted(acc_id, book_id, booking_info, payment_details, session) {
+  async makeBookingAccepted(
+    acc_id,
+    book_id,
+    booking_info,
+    payment_details,
+    session
+  ) {
     try {
-
       /* CHECKINGS BEFORE ACCEPTING */
 
       // CHECK- 1 ==> Only bokkings that are declined, accepted, cancelled can not be accepted again
-      if(booking_info.accepted_by || booking_info.declined_by || booking_info.canceled_by) {
+      if (
+        booking_info.accepted_by ||
+        booking_info.declined_by ||
+        booking_info.canceled_by
+      ) {
         throw new Error("Only pending bookings can be accepted");
       }
 
-      const { amount, payment_dunning, message="" } = payment_details;
+      const { amount, payment_dunning, message = "" } = payment_details;
       const room_id = String(booking_info?.room_id);
 
-      // CHECK- 2 ==> if there's already an active booking for the same room, by another user, that is accepted
-      const existingPaymentReq = await redisClient.get(`payment-${book_id}-${room_id}`);
-      if(existingPaymentReq) {
-        throw new Error("This booking already has an active payment request.");
+      // CHECK- 2 ==> if the room is already booked then it is not accepted
+      const targetRoom = await RoomInfo_Model.findById(room_id);
+      if (targetRoom?.booked_by !==null || targetRoom?.booking_status !== "") {
+        throw new Error("This Room has already been booked by other user");
       }
 
       // CHECK- 3 ==> Payment details must be provided to accept the booking
-      if(!payment_details || Object.keys(payment_details).length === 0) {
+      if (!payment_details || Object.keys(payment_details).length === 0) {
         throw new Error("Payment details are required to accept the booking");
       }
 
@@ -413,8 +414,14 @@ export class Booking {
         throw new Error("Invalid or missing amount in payment details");
       }
       /* Payment dunning will always be in days */
-      if (!payment_dunning || typeof payment_dunning !== "number" || payment_dunning <= 0) {
-        throw new Error("Invalid or missing payment dunning in payment details");
+      if (
+        !payment_dunning ||
+        typeof payment_dunning !== "number" ||
+        payment_dunning <= 0
+      ) {
+        throw new Error(
+          "Invalid or missing payment dunning in payment details"
+        );
       }
 
       const payment_info = JSON.stringify({
@@ -425,7 +432,12 @@ export class Booking {
       });
 
       // Store payment info as stringified JSON in the redis so far as the payment only valid for payment dunning days
-      await redisClient.set(`payment-${book_id}-${room_id}`, payment_info, "EX", payment_dunning * 24 * 60 * 60);
+      await redisClient.set(
+        `payment-${room_id}`,
+        payment_info,
+        "EX",
+        payment_dunning * 24 * 60 * 60
+      );
 
       const updatedStatus = {
         accepted_at: new Date(),
@@ -435,7 +447,7 @@ export class Booking {
       const updatedBooking = await Booking_Model.findByIdAndUpdate(
         book_id,
         updatedStatus,
-        { new: true , session }
+        { new: true, session }
       );
 
       if (!updatedBooking) {
@@ -452,12 +464,11 @@ export class Booking {
         { session }
       );
 
-      if(!updated_room) {
+      if (!updated_room) {
         throw new Error("Failed to update room booking status");
       }
 
       return updatedBooking;
-
     } catch (error) {
       throw new Error("Error accepting booking: " + error.message);
     }
@@ -468,17 +479,15 @@ export class Booking {
       /* CHECKING BEFORE DECLINE A BOOKING */
 
       // CHECK -1 ==> Only bokkings that are accepted, revolked, cancelled can not be declined again
-      if(booking_info.accepted_by || booking_info.revolked_by || booking_info.canceled_by) {
+      if (
+        booking_info.accepted_by ||
+        booking_info.revolked_by ||
+        booking_info.canceled_by
+      ) {
         throw new Error("Only pending bookings can be declined");
       }
 
       const room_id = String(booking_info?.room_id);
-
-      // CHECK- 2 ==> if there's an active payment request for this booking, it can not be declined
-      const existingPaymentReq = await redisClient.get(`payment-${book_id}-${room_id}`);
-      if(existingPaymentReq) {
-        throw new Error("This booking has an active payment request and can not be declined.");
-      }
 
       const updatedStatus = {
         declined_at: new Date(),
@@ -504,16 +513,20 @@ export class Booking {
       /* CHECKING BEFORE REVOLKING A BOOKING */
 
       // CHECK -1 ==> Only Bookings that are accepted can be revolked
-      if(!booking_info.accepted_by) {
+      if (!booking_info.accepted_by) {
         throw new Error("Only accepted bookings can be revolked");
       }
 
       const room_id = String(booking_info?.room_id);
 
       // CHECK- 2 ==> if there's an active payment request for this booking, it can not be revolked
-      const existingPaymentReq = await redisClient.get(`payment-${book_id}-${room_id}`);
-      if(existingPaymentReq) {
-        throw new Error("This booking has an active payment request and can not be revolked.");
+      const existingPaymentReq = await redisClient.get(
+        `payment-${room_id}`
+      );
+      if (existingPaymentReq) {
+        throw new Error(
+          "This booking has an active payment request and can not be revolked."
+        );
       }
 
       const updatedStatus = {
@@ -542,12 +555,11 @@ export class Booking {
         { session }
       );
 
-      if(!updated_room) {
+      if (!updated_room) {
         throw new Error("Failed to update room booking status");
       }
 
       return updatedBooking;
-
     } catch (error) {
       throw new Error("Error revolking booking: " + error.message);
     }
@@ -593,13 +605,30 @@ export class Booking {
 
       switch (status) {
         case "accepted":
-          res_data = await new Booking().makeBookingAccepted(id, book_id, booking_info, payment_details, session);
+          res_data = await new Booking().makeBookingAccepted(
+            id,
+            book_id,
+            booking_info,
+            payment_details,
+            session
+          );
           break;
         case "declined":
-          res_data = await new Booking().makeBookingDeclined(id, book_id, booking_info, session);
+          res_data = await new Booking().makeBookingDeclined(
+            id,
+            book_id,
+            booking_info,
+            session
+          );
           break;
         case "revolked":
-          res_data = await new Booking().makeBookingRevolked(id, book_id, booking_info, reason, session);
+          res_data = await new Booking().makeBookingRevolked(
+            id,
+            book_id,
+            booking_info,
+            reason,
+            session
+          );
           break;
         default:
           break;
@@ -647,14 +676,18 @@ export class Booking {
         return res.status(404).json({ message: "Booking not found" });
       }
 
-      if (booking_info.canceled_at || booking_info.accepted_by || booking_info.declined_by || booking_info.revolked_by) {
+      if (
+        booking_info.canceled_at ||
+        booking_info.accepted_by ||
+        booking_info.declined_by ||
+        booking_info.revolked_by
+      ) {
         return res.status(400).json({
-          message:
-            "Only pending bookings can be canceled",
+          message: "Only pending bookings can be canceled",
         });
       }
 
-      const {reason = ""} = req.body;
+      const { reason = "" } = req.body;
 
       const canceledBooking = await Booking_Model.findByIdAndUpdate(
         book_id,
@@ -707,54 +740,94 @@ export class Booking {
   }
 
   static async getBookingDetails(req, res) {
-  try {
-    if (!(await Database.isConnected())) {
-      throw new Error("Database server is not connected properly");
-    }
-
-    const { booking_id } = req.params;
-
-    if (!booking_id) {
-      return res.status(400).json({ message: "Booking ID is required" });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(booking_id)) {
-      return res.status(400).json({ message: "Invalid Booking ID format" });
-    }
-
-    const bookingData = await Booking_Model.aggregate([
-      {
-        $match: { _id: new mongoose.Types.ObjectId(String(booking_id)) }
-      },
-      {
-        $lookup: {
-          from: "habitates", 
-          localField: "_id",
-          foreignField: "booking_id",
-          as: "persons"
-        }
-      },
-      {
-        $limit: 1
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
       }
-    ]);
 
-    if (!bookingData || bookingData.length === 0) {
-      return res.status(404).json({ message: "Booking not found" });
+      const { booking_id } = req.params;
+
+      if (!booking_id) {
+        return res.status(400).json({ message: "Booking ID is required" });
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(booking_id)) {
+        return res.status(400).json({ message: "Invalid Booking ID format" });
+      }
+
+      const bookingData = await Booking_Model.aggregate([
+        {
+          $match: { _id: new mongoose.Types.ObjectId(String(booking_id)) },
+        },
+        {
+          $lookup: {
+            from: "habitates",
+            localField: "_id",
+            foreignField: "booking_id",
+            as: "persons",
+          },
+        },
+        {
+          $limit: 1,
+        },
+      ]);
+
+      if (!bookingData || bookingData.length === 0) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      res.status(200).json({
+        message: "Booking Details Fetched Successfully",
+        data: bookingData[0],
+      });
+    } catch (error) {
+      console.error("Booking details fetch failed:", error);
+      res.status(500).json({
+        message: "Error Fetching Booking Details",
+        error: error.message,
+      });
     }
-
-    res.status(200).json({
-      message: "Booking Details Fetched Successfully",
-      data: bookingData[0],
-    });
-
-  } catch (error) {
-    console.error("Booking details fetch failed:", error);
-    res.status(500).json({
-      message: "Error Fetching Booking Details",
-      error: error.message,
-    });
   }
-}
 
+  static async cancelPaymentSession(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+      
+      const { booking_id } = req?.params;
+      
+      const booking_info = await Booking_Model.findById(booking_id);
+      
+      if (!booking_info) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const room_id = String(booking_info?.room_id);
+      
+      // Check if there's an active payment session for that booking for a perticular room
+      /* If there's active booking session then delete it , if not then throw error */
+      const existingPaymentReq = await redisClient.get(
+        `payment-${room_id}`
+      );
+      if (!existingPaymentReq) {
+        throw new Error(
+          "There's no active payment session under this booking id"
+        );
+      } else {
+        await redisClient.del(`payment-${room_id}`);
+      }
+
+      res.status(200).json({
+        message: "Payment Session Closed Successfully"
+      })
+
+    } catch (error) {
+      console.error("Error while cancelling Payment Session", error);
+      res.status(500).json({
+        message: "Error while cancelling Payment Session",
+        error: error.message,
+      });
+    }
+  }
 }
