@@ -74,6 +74,11 @@ const bookingSchema = new Schema(
       default: null,
       trim: true,
     },
+    canceled_reason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     revolked_at: {
       type: Date,
       default: null,

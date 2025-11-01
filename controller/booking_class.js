@@ -285,6 +285,7 @@ export class Booking {
           declined_by: null,
           canceled_at: null,
           canceled_by: null,
+          canceled_reason: "",
           revolked_at: null,
           revolked_by: null,
           revolked_reason: "",
@@ -385,8 +386,8 @@ export class Booking {
 
       /* CHECKINGS BEFORE ACCEPTING */
 
-      // CHECK- 1 ==> Only bokkings that are declined, accepted can not be accepted again
-      if(booking_info.accepted_by || booking_info.declined_by) {
+      // CHECK- 1 ==> Only bokkings that are declined, accepted, cancelled can not be accepted again
+      if(booking_info.accepted_by || booking_info.declined_by || booking_info.canceled_by) {
         throw new Error("Only pending bookings can be accepted");
       }
 
@@ -466,8 +467,8 @@ export class Booking {
     try {
       /* CHECKING BEFORE DECLINE A BOOKING */
 
-      // CHECK -1 ==> Only bokkings that are accepted, revolked can not be declined again
-      if(booking_info.accepted_by || booking_info.revolked_by) {
+      // CHECK -1 ==> Only bokkings that are accepted, revolked, cancelled can not be declined again
+      if(booking_info.accepted_by || booking_info.revolked_by || booking_info.canceled_by) {
         throw new Error("Only pending bookings can be declined");
       }
 
@@ -530,6 +531,23 @@ export class Booking {
       if (!updatedBooking) {
         return res.status(404).json({ message: "Booking not found" });
       }
+
+      // Reinitialize the RoomInfo to unset booked_by and booking_status
+      const updated_room = await RoomInfo_Model.findByIdAndUpdate(
+        room_id,
+        {
+          booked_by: null,
+          booking_status: "",
+        },
+        { session }
+      );
+
+      if(!updated_room) {
+        throw new Error("Failed to update room booking status");
+      }
+
+      return updatedBooking;
+
     } catch (error) {
       throw new Error("Error revolking booking: " + error.message);
     }
@@ -622,11 +640,28 @@ export class Booking {
 
       const { book_id } = req.params;
 
+      // Booking that is already cancelled, accepted, declined, revolked can not be canceled again
+      const booking_info = await Booking_Model.findById(book_id);
+
+      if (!booking_info) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      if (booking_info.canceled_at || booking_info.accepted_by || booking_info.declined_by || booking_info.revolked_by) {
+        return res.status(400).json({
+          message:
+            "Only pending bookings can be canceled",
+        });
+      }
+
+      const {reason = ""} = req.body;
+
       const canceledBooking = await Booking_Model.findByIdAndUpdate(
         book_id,
         {
           canceled_at: new Date(),
           canceled_by: id,
+          canceled_reason: reason || "",
         },
         { new: true }
       );
