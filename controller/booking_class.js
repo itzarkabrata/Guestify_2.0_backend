@@ -261,6 +261,15 @@ export class Booking {
                 default: "pending",
               },
             },
+            reason: {
+              $switch: {
+                branches: [
+                  { case: { $ne: ["$canceled_at", null] }, then: "$canceled_reason" },
+                  { case: { $ne: ["$revolked_at", null] }, then: "$revolked_reason" },
+                ],
+                default: "",
+              },
+            },
             status_timestamp: {
               $switch: {
                 branches: [
@@ -352,12 +361,14 @@ export class Booking {
             user_address: "$user_info.address",
             status: 1,
             status_timestamp: 1,
+            reason: 1,
             person_number: 1,
             accepted_at: "$accepted_at_field",
             declined_at: "$declined_at_field",
-
             pg_name: "$pg_info.pg_name",
             room_type: "$room_info.room_type",
+            room_rent: "$room_info.room_rent",
+            deposit_duration: "$room_info.deposit_duration",
             room_id: "$room_info._id",
           },
         },
