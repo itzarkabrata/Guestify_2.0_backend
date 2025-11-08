@@ -9,6 +9,182 @@ import { RoomInfo_Model } from "../models/roominfo.js";
 import { redisClient } from "../lib/redis.config.js";
 
 export class Booking {
+
+  static async getAllRoomBookings(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { is_admin, id} = req.user;
+
+      if( is_admin ) {
+        return  res.status(403).json({ message: "Please Login with a user account to get the list" });
+      }
+
+      // Extract query params with defaults
+      const page = parseInt(req.query.page) || 1;
+      const show = parseInt(req.query.show) || 10;
+      const filter = req.query.filter?.trim().toLowerCase() || "all";
+      const search = req.query.search?.trim() || "";
+
+      const matchStage = {
+        user_id: new mongoose.Types.ObjectId(String(id)),
+      };
+
+      const aggregationPipeline = [
+        { $match: matchStage },
+
+        // Join with Habitate collection
+        {
+          $lookup: {
+            from: "habitates",
+            localField: "_id",
+            foreignField: "booking_id",
+            as: "habitates",
+          },
+        },
+
+        // Join With Room
+        {
+          $lookup: {
+            from: "roominfos",
+            localField: "room_id",
+            foreignField: "_id",
+            as: "room_info",
+          },
+        },
+        { $unwind: "$room_info" },
+
+        // Join With Pg
+        {
+          $lookup: {
+            from: "pginfos",
+            localField: "room_info.pg_id",
+            foreignField: "_id",
+            as: "pg_info",
+          },
+        },
+        { $unwind: "$pg_info" },
+
+        // Add computed fields
+        {
+          $addFields: {
+            status: {
+              $switch: {
+                branches: [
+                  { case: { $ne: ["$canceled_at", null] }, then: "canceled" },
+                  { case: { $ne: ["$revolked_at", null] }, then: "revolked" },
+                  { case: { $ne: ["$declined_at", null] }, then: "declined" },
+                  { case: { $ne: ["$accepted_at", null] }, then: "accepted" },
+                ],
+                default: "pending",
+              },
+            },
+            status_timestamp: {
+              $switch: {
+                branches: [
+                  {
+                    case: { $ne: ["$canceled_at", null] },
+                    then: "$canceled_at",
+                  },
+                  {
+                    case: { $ne: ["$revolked_at", null] },
+                    then: "$revolked_at",
+                  },
+                  {
+                    case: { $ne: ["$declined_at", null] },
+                    then: "$declined_at",
+                  },
+                  {
+                    case: { $ne: ["$accepted_at", null] },
+                    then: "$accepted_at",
+                  },                 
+                ],
+                default: null,
+              },
+            },
+            person_number: { $size: "$habitates" },
+          },
+        },
+
+        // Filter by search (user name or address)
+        ...(search
+          ? [
+              {
+                $match: {
+                  $or: [
+                    {
+                      "pg_info.pg_name": {
+                        $regex: search,
+                        $options: "i",
+                      },
+                    },
+                  ],
+                },
+              },
+            ]
+          : []),
+
+        // Filter by status
+        ...(filter !== "all" ? [{ $match: { status: filter } }] : []),
+
+        // Projection
+        {
+          $project: {
+            _id: 0,
+            booking_id: "$_id",
+            booking_date: "$createdAt",
+            status: 1,
+            status_timestamp: 1,
+            person_number: 1,
+            pg_name: "$pg_info.pg_name",
+            room_details: {
+              id: "$room_info._id",
+              type: "$room_info.room_type",
+              room_rent: "$room_info.room_rent",
+              room_images: "$room_info.room_images",
+              deposit_duration: "$room_info.deposit_duration",
+            },
+          },
+        },
+
+        { $sort: { booking_date: -1 } },
+      ];
+
+      // ✅ Add pagination using $facet
+      aggregationPipeline.push({
+        $facet: {
+          data: [{ $skip: (page - 1) * show }, { $limit: show }],
+          totalCount: [{ $count: "count" }],
+        },
+      });
+
+      const result = await Booking_Model.aggregate(aggregationPipeline);
+      const bookings = result[0]?.data || [];
+      const totalCount = result[0]?.totalCount[0]?.count || 0;
+
+      res.status(200).json({
+        message: "Bookings fetched successfully",
+        data: {
+          total: totalCount,
+          page,
+          per_page: show,
+          total_pages: Math.ceil(totalCount / show),
+          filter,
+          search,
+          bookings: bookings,
+        },
+      });
+    } catch (error) {
+      console.error("Fetching bookings failed:", error);
+      res.status(500).json({
+        message: "Failed to fetch bookings",
+        error: error.message,
+      });
+    }
+  }
+
   static async getAllBookings(req, res) {
     try {
       if (!(await Database.isConnected())) {

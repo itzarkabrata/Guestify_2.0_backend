@@ -8,6 +8,9 @@ const router = Router();
 // Get All Bookings
 router.get("/booking/list", User.isLoggedIn, Booking.getAllBookings);
 
+// Get All Room Bookings for a particular user
+router.get("/booking/roomlist", User.isLoggedIn, Booking.getAllRoomBookings);
+
 // Create Booking
 router.post("/booking/create", User.isLoggedIn, Booking.createBooking);
 
