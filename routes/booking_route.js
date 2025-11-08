@@ -8,6 +8,9 @@ const router = Router();
 // Get All Bookings
 router.get("/booking/list", User.isLoggedIn, Booking.getAllBookings);
 
+// Get All Room Bookings for a particular user
+router.get("/booking/roomlist", User.isLoggedIn, Booking.getAllRoomBookings);
+
 // Create Booking
 router.post("/booking/create", User.isLoggedIn, Booking.createBooking);
 
@@ -25,5 +28,8 @@ router.get("/booking/:booking_id/details", User.isLoggedIn, Booking.getBookingDe
 
 // Download Booking Document PDF
 router.get("/booking/:booking_id/download", User.isLoggedIn, Download_Doc.downloadBookingDocument);
+
+// Cancel Payment Session
+router.patch("/booking/:booking_id/payment/close", User.isLoggedIn, Booking.cancelPaymentSession);
 
 export const booking_router = router;

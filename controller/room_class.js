@@ -86,7 +86,7 @@ export class Room {
     if (!mongoose.Types.ObjectId.isValid(pg_id))
       throw new TypeError("PG ID must be a valid ObjectId format");
 
-    const new_room = new RoomInfo_Model({ ...room });
+    const new_room = new RoomInfo_Model({ ...room, booked_by: null, booking_status: "" });
 
     const savedRoom = await new_room.save();
 
@@ -281,6 +281,45 @@ export class Room {
 
       res.status(500).json({
         message: "Failed to delete PG Room Details",
+        error: error.message,
+      });
+    }
+  }
+
+  static async getRoomDetails(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { roomid } = req.params;
+      const user_id = req.user.id;
+
+      if (!user_id) {
+        throw new Error("User ID not found in request");
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(roomid)) {
+        throw new TypeError("Invalid Room ID format");
+      }
+
+      const details = await RoomInfo_Model.findById(roomid);
+
+      if(!details){
+        res?.status(404)?.json({
+          message: "Room Details Not Found"
+        })
+      }
+
+      res.status(200).json({
+        message: "Room Details Fetched Successfully",
+        data: details
+      });
+    } catch (error) {
+      console.error(error.message);
+
+      res.status(500).json({
+        message: "Failed to fetch PG Room Details",
         error: error.message,
       });
     }
