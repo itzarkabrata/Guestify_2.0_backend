@@ -39,6 +39,8 @@ export class Habitate {
         age,
         gender,
         address,
+        dial_code,
+        contact_number,
         type_of_identity,
         identity_id,
         is_primary,
@@ -65,6 +67,10 @@ export class Habitate {
         throw new TypeError("Gender must be 'male', 'female', or 'other'");
       if (typeof address !== "string")
         throw new TypeError("Address must be of type string");
+      if( dial_code && typeof dial_code !== "string")
+        throw new TypeError("Dial code must be of type string");
+      if( contact_number && typeof contact_number !== "string")
+        throw new TypeError("Contact number must be of type string");
       if (typeof type_of_identity !== "string")
         throw new TypeError("Type of identity must be of type string");
       if (typeof identity_id !== "string")
@@ -88,6 +94,8 @@ export class Habitate {
         age: Number(age),
         gender,
         address,
+        dial_code,
+        contact_number,
         type_of_identity,
         identity_id,
         image: image,

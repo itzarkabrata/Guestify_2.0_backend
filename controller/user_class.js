@@ -93,7 +93,7 @@ export class User {
         const msg = JSON.stringify(
           EventObj.createEventObj(
             "transactional",
-            "User Registration done in the account",
+            "Registration done in the account",
             false,
             "success",
             added_user._id,
@@ -121,7 +121,7 @@ export class User {
 
         res.status(200).json({
           message:
-            "User registered successfully , Please Login with the email-id and password",
+            `${is_admin ? 'Admin' : 'User'} registered successfully , Please Login with the email-id and password`,
         });
       } else {
         throw new Error("Database server is not connected properly");
@@ -222,7 +222,7 @@ export class User {
             const msg = JSON.stringify(
               EventObj.createEventObj(
                 "transactional",
-                "User Logged in to the account",
+                "Logged in to the account",
                 false,
                 "success",
                 res_user[0]._id,
@@ -234,7 +234,7 @@ export class User {
             AMQP.publishMsg("noti-queue", msg);
 
             res.status(200).json({
-              message: "User Logged in successfully",
+              message: `${res_user[0].is_admin ? 'Admin' : 'User'} Logged in successfully`,
               data: {
                 token: token,
                 user_id: res_user[0]._id,
