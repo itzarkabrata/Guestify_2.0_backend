@@ -33,6 +33,16 @@ const HabitateSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    dial_code: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    contact_number: {
+      type: String,
+      required: false,
+      trim: true,
+    },
     type_of_identity: {
       type: String,
       required: true,
