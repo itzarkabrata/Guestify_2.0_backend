@@ -77,12 +77,35 @@ export class Booking {
             status: {
               $switch: {
                 branches: [
-                  { case: { $ne: ["$accepted_at", null] }, then: "accepted" },
-                  { case: { $ne: ["$declined_at", null] }, then: "declined" },
                   { case: { $ne: ["$canceled_at", null] }, then: "canceled" },
                   { case: { $ne: ["$revolked_at", null] }, then: "revolked" },
+                  { case: { $ne: ["$declined_at", null] }, then: "declined" },
+                  { case: { $ne: ["$accepted_at", null] }, then: "accepted" },
                 ],
                 default: "pending",
+              },
+            },
+            status_timestamp: {
+              $switch: {
+                branches: [
+                  {
+                    case: { $ne: ["$canceled_at", null] },
+                    then: "$canceled_at",
+                  },
+                  {
+                    case: { $ne: ["$revolked_at", null] },
+                    then: "$revolked_at",
+                  },
+                  {
+                    case: { $ne: ["$declined_at", null] },
+                    then: "$declined_at",
+                  },
+                  {
+                    case: { $ne: ["$accepted_at", null] },
+                    then: "$accepted_at",
+                  },                 
+                ],
+                default: null,
               },
             },
             person_number: { $size: "$habitates" },
@@ -109,6 +132,12 @@ export class Booking {
                     },
                     {
                       "user_info.address": {
+                        $regex: search,
+                        $options: "i",
+                      },
+                    },
+                    {
+                      "pg_info.pg_name": {
                         $regex: search,
                         $options: "i",
                       },
@@ -146,12 +175,14 @@ export class Booking {
             user_image: "$user_info.image_url",
             user_address: "$user_info.address",
             status: 1,
+            status_timestamp: 1,
             person_number: 1,
             accepted_at: "$accepted_at_field",
             declined_at: "$declined_at_field",
 
             pg_name: "$pg_info.pg_name",
             room_type: "$room_info.room_type",
+            room_id: "$room_info._id",
           },
         },
 
