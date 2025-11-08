@@ -365,7 +365,6 @@ export class Booking {
             person_number: 1,
             accepted_at: "$accepted_at_field",
             declined_at: "$declined_at_field",
-
             pg_name: "$pg_info.pg_name",
             room_type: "$room_info.room_type",
             room_rent: "$room_info.room_rent",
