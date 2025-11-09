@@ -19,9 +19,7 @@ export class ImageUpload {
 
             console.log("Uploaded files:", req.files);
 
-            const imageFiles = req.files.filter((f) =>
-                f.fieldname.includes("pg_image_url") || f.fieldname.includes("room_image_url")
-            );
+            const imageFiles = req.files.filter((f) => f.fieldname.includes("image_url"));
 
             if (imageFiles.length === 0) {
                 throw new Error("No valid PG/ROOM image files found");

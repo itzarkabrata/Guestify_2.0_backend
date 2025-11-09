@@ -21,7 +21,7 @@ router.patch("/booking/:book_id/status", User.isLoggedIn, Booking.changeBookingS
 router.patch("/booking/:book_id/cancel", User.isLoggedIn, Booking.cancelBooking);
 
 // Make booking Delete
-router.delete("/booking/:id", User.isLoggedIn, Booking.deleteBooking);
+router.delete("/booking/:book_id", User.isLoggedIn, Booking.deleteBooking);
 
 // Get Booking Details
 router.get("/booking/:booking_id/details", User.isLoggedIn, Booking.getBookingDetails);
