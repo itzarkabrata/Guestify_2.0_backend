@@ -409,7 +409,7 @@ export class Booking {
         const ttlResults = await pipeline.exec(); // [[null, ttl1], [null, ttl2], ...]
         bookings.forEach((b, i) => {
           const ttl = ttlResults[i][1];
-          b.payment_ttl = ttl > 0 ? ttl : 0; // 0 if no expiry or not found
+          b.payment_ttl = b?.status === "accepted" ? ttl > 0 ? ttl : 0 : null; // 0 if no expiry or not found
         });
       }
 
