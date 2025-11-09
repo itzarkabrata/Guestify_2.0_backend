@@ -167,6 +167,21 @@ export class Booking {
       const bookings = result[0]?.data || [];
       const totalCount = result[0]?.totalCount[0]?.count || 0;
 
+      // ✅ Add Redis TTL lookup here
+      if (bookings.length > 0) {
+        const pipeline = redisClient?.multi();
+
+        bookings.forEach((b) => {
+          pipeline.ttl(`payment-${b?.room_details?.id}`);
+        });
+
+        const ttlResults = await pipeline.exec(); // [[null, ttl1], [null, ttl2], ...]
+        bookings.forEach((b, i) => {
+          const ttl = ttlResults[i][1];
+          b.payment_ttl = b?.status === "accepted" ? ttl > 0 ? ttl : 0 : null; // 0 if no expiry or not found
+        });
+      }
+
       res.status(200).json({
         message: "Bookings fetched successfully",
         data: {
@@ -1050,45 +1065,6 @@ export class Booking {
       console.error("Booking details fetch failed:", error);
       res.status(500).json({
         message: "Error Fetching Booking Details",
-        error: error.message,
-      });
-    }
-  }
-
-  static async cancelPaymentSession(req, res) {
-    try {
-      if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
-      }
-
-      const { booking_id } = req?.params;
-
-      const booking_info = await Booking_Model.findById(booking_id);
-
-      if (!booking_info) {
-        return res.status(404).json({ message: "Booking not found" });
-      }
-
-      const room_id = String(booking_info?.room_id);
-
-      // Check if there's an active payment session for that booking for a perticular room
-      /* If there's active booking session then delete it , if not then throw error */
-      const existingPaymentReq = await redisClient.get(`payment-${room_id}`);
-      if (!existingPaymentReq) {
-        throw new Error(
-          "There's no active payment session under this booking id"
-        );
-      } else {
-        await redisClient.del(`payment-${room_id}`);
-      }
-
-      res.status(200).json({
-        message: "Payment Session Closed Successfully",
-      });
-    } catch (error) {
-      console.error("Error while cancelling Payment Session", error);
-      res.status(500).json({
-        message: "Error while cancelling Payment Session",
         error: error.message,
       });
     }
