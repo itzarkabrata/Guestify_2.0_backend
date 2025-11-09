@@ -403,7 +403,7 @@ export class Booking {
         const pipeline = redisClient?.multi();
 
         bookings.forEach((b) => {
-          pipeline.ttl(`payment-${b.booking_id}`);
+          pipeline.ttl(`payment-${b.room_id}`);
         });
 
         const ttlResults = await pipeline.exec(); // [[null, ttl1], [null, ttl2], ...]
