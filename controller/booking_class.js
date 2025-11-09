@@ -9,17 +9,20 @@ import { RoomInfo_Model } from "../models/roominfo.js";
 import { redisClient } from "../lib/redis.config.js";
 
 export class Booking {
-
   static async getAllRoomBookings(req, res) {
     try {
       if (!(await Database.isConnected())) {
         throw new Error("Database server is not connected properly");
       }
 
-      const { is_admin, id} = req.user;
+      const { is_admin, id } = req.user;
 
-      if( is_admin ) {
-        return  res.status(403).json({ message: "Please Login with a user account to get the list" });
+      if (is_admin) {
+        return res
+          .status(403)
+          .json({
+            message: "Please Login with a user account to get the list",
+          });
       }
 
       // Extract query params with defaults
@@ -99,7 +102,7 @@ export class Booking {
                   {
                     case: { $ne: ["$accepted_at", null] },
                     then: "$accepted_at",
-                  },                 
+                  },
                 ],
                 default: null,
               },
@@ -264,8 +267,14 @@ export class Booking {
             reason: {
               $switch: {
                 branches: [
-                  { case: { $ne: ["$canceled_at", null] }, then: "$canceled_reason" },
-                  { case: { $ne: ["$revolked_at", null] }, then: "$revolked_reason" },
+                  {
+                    case: { $ne: ["$canceled_at", null] },
+                    then: "$canceled_reason",
+                  },
+                  {
+                    case: { $ne: ["$revolked_at", null] },
+                    then: "$revolked_reason",
+                  },
                 ],
                 default: "",
               },
@@ -288,7 +297,7 @@ export class Booking {
                   {
                     case: { $ne: ["$accepted_at", null] },
                     then: "$accepted_at",
-                  },                 
+                  },
                 ],
                 default: null,
               },
@@ -354,6 +363,7 @@ export class Booking {
             _id: 0,
             booking_id: "$_id",
             booking_date: "$createdAt",
+            payment_at: "$payment_at",
             user_name: {
               $concat: ["$user_info.first_name", " ", "$user_info.last_name"],
             },
@@ -387,6 +397,21 @@ export class Booking {
       const result = await Booking_Model.aggregate(aggregationPipeline);
       const bookings = result[0]?.data || [];
       const totalCount = result[0]?.totalCount[0]?.count || 0;
+
+      // ✅ Add Redis TTL lookup here
+      if (bookings.length > 0) {
+        const pipeline = redisClient?.multi();
+
+        bookings.forEach((b) => {
+          pipeline.ttl(`payment-${b.booking_id}`);
+        });
+
+        const ttlResults = await pipeline.exec(); // [[null, ttl1], [null, ttl2], ...]
+        bookings.forEach((b, i) => {
+          const ttl = ttlResults[i][1];
+          b.payment_ttl = ttl > 0 ? ttl : 0; // 0 if no expiry or not found
+        });
+      }
 
       res.status(200).json({
         message: "Bookings fetched successfully",
