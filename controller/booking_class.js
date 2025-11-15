@@ -709,6 +709,7 @@ export class Booking {
 
       const payment_info = JSON.stringify({
         room_id,
+        booking_id: book_id,
         amount,
         payment_dunning,
         message,

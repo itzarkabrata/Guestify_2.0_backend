@@ -23,6 +23,7 @@ import { image_upload_router } from "./routes/image_upload_route.js";
 import { booking_router } from "./routes/booking_route.js";
 import { wishlist_router } from "./routes/wishlist_route.js";
 import { payment_router } from "./routes/payment_route.js";
+import { webhook_router } from "./routes/webhook_route.js";
 
 // Resolve __dirname in ES modules
 export const __filename = fileURLToPath(import.meta.url);
@@ -84,6 +85,8 @@ app.use("/backend", booking_router);
 app.use("/backend", wishlist_router);
 
 app.use("/backend", payment_router);
+
+app.use("/backend", webhook_router);
 
 
 //response for Undeclared api endpoint
