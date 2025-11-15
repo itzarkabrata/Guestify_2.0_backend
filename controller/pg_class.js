@@ -213,8 +213,37 @@ export class Pg {
           },
         },
         {
+          $addFields: {
+            pginfo: {
+              _id: "$_id",
+              pg_name: "$pg_name",
+              district: "$district",
+              rules: "$rules",
+              street_name: "$street_name",
+              house_no: "$house_no",
+              state: "$state",
+              pincode: "$pincode",
+              address: "$address",
+              wifi_available: "$wifi_available",
+              wifi_speed: "$wifi_speed",
+              additional_wifi_charges: "$additional_wifi_charges",
+              charge_duration: "$charge_duration",
+              food_available: "$food_available",
+              pg_type: "$pg_type",
+              location: "$location",
+              pg_images: "$pg_images",
+              createdAt: "$createdAt",
+              updatedAt: "$updatedAt",
+              minRent: "$minRent",
+              averageRating: "$averageRating",
+            },
+          },
+        },
+        {
           $project: {
-            reviews: 0,
+            _id: 0,
+            pginfo: 1,
+            rooms: 1,
           },
         },
       ];
