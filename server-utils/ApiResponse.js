@@ -11,6 +11,9 @@ export class ApiResponse {
     this.success = success;
     this.statusCode = statusCode;
     this.error = error;
+    if(Array.isArray(data)){
+        this.count = data.length;
+    }
   }
 
   // Success Handler

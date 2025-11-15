@@ -11,6 +11,15 @@ import { haversineDistance } from "../server-utils/publicURLFetcher.js";
 import { redisClient } from "../lib/redis.config.js";
 import { EventObj } from "../lib/event.config.js";
 import { AMQP } from "../lib/amqp.connect.js";
+import {
+  ApiError,
+  AuthorizationError,
+  EvalError,
+  InternalServerError,
+  NotFoundError,
+  TypeError,
+} from "../server-utils/ApiError.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
 // import { filterPGsAndRoomsByRent } from "../server-utils/publicURLFetcher.js";
 // import { Review } from "./review_class.js";
 
@@ -50,6 +59,252 @@ export class Pg {
 
     return rooms;
   }
+
+  static async getAllPgByDistrict(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
+      }
+
+      // Getting query paramters
+      const {
+        district,
+        page = 1,
+        show = 10,
+        search = "",
+        pg_type = "",
+        wifi_available = "",
+        food_available = "",
+        minRent,
+        maxRent,
+        sort = "-minRent",
+        coordinates = [],
+      } = req.query;
+
+      // district is mandatory
+      if (!district) {
+        throw new TypeError("Missing Query Paramteres : district is required");
+      }
+
+      // Allowed Sort Fields
+      const allowedSortFields = ["minRent", "averageRating"];
+
+      let sortField = "minRent";
+      let sortDirection = 1;
+      if (sort?.startsWith("-")) {
+        sortField = sort.slice(1);
+        sortDirection = -1;
+      } else {
+        sortField = sort;
+        sortDirection = 1;
+      }
+
+      // ==== Additional Query Filters ====
+      const additionalFilters = {};
+
+      if (pg_type) additionalFilters.pg_type = pg_type;
+      if (wifi_available) additionalFilters.wifi_available = wifi_available;
+      if (food_available) additionalFilters.food_available = food_available;
+
+      // Finding the pgs based on a certain radius
+      const min =
+        minRent !== undefined && minRent !== "" ? Number(minRent) : null;
+      const max =
+        maxRent !== undefined && maxRent !== "" ? Number(maxRent) : null;
+
+      const pipeline = [
+        // Step 1: Geospatial filtering
+        {
+          $match: { district: { $regex: new RegExp(`^${district}$`, "i") } },
+        },
+
+        // Step 2: Apply additional filters if provided
+        {
+          $match: {
+            ...additionalFilters,
+          },
+        },
+
+        // Filter by search (pg name or street name)
+        ...(search
+          ? [
+              {
+                $match: {
+                  $or: [
+                    {
+                      pg_name: {
+                        $regex: search,
+                        $options: "i",
+                      },
+                    },
+                    {
+                      street_name: {
+                        $regex: search,
+                        $options: "i",
+                      },
+                    },
+                  ],
+                },
+              },
+            ]
+          : []),
+
+        // Step 3: Join with rooms collection
+        {
+          $lookup: {
+            from: "roominfos", // your actual collection name
+            localField: "_id",
+            foreignField: "pg_id",
+            as: "rooms",
+          },
+        },
+
+        // Step 4: Filter the joined rooms based on min/max rent (optional)
+        {
+          $addFields: {
+            rooms: {
+              $filter: {
+                input: "$rooms",
+                as: "room",
+                cond:
+                  min !== null || max !== null
+                    ? {
+                        $and: [
+                          ...(min !== null
+                            ? [{ $gte: ["$$room.room_rent", min] }]
+                            : []),
+                          ...(max !== null
+                            ? [{ $lte: ["$$room.room_rent", max] }]
+                            : []),
+                        ],
+                      }
+                    : { $gt: ["$$room.room_rent", -1] }, // always true fallback
+              },
+            },
+          },
+        },
+
+        // Step 5: Only keep PGs that have at least 1 matching room
+        {
+          $match: {
+            "rooms.0": { $exists: true },
+          },
+        },
+        // === Add minimum rent per PG ===
+        {
+          $addFields: {
+            minRent: { $min: "$rooms.room_rent" },
+          },
+        },
+        // === Lookup reviews and calculate average rating ===
+        {
+          $lookup: {
+            from: "reviews",
+            localField: "_id",
+            foreignField: "pg_id",
+            as: "reviews",
+          },
+        },
+        {
+          $addFields: {
+            averageRating: { $avg: "$reviews.rating" },
+          },
+        },
+        {
+          $project: {
+            reviews: 0,
+          },
+        },
+      ];
+
+      if (allowedSortFields?.includes(sortField)) {
+        pipeline.push({
+          $sort: {
+            [sortField]: sortDirection,
+          },
+        });
+      }
+
+      // Add pagination using $facet
+      pipeline.push({
+        $facet: {
+          data: [{ $skip: (page - 1) * show }, { $limit: show }],
+          totalCount: [{ $count: "count" }],
+        },
+      });
+
+      const pgList = await PgInfo_Model.aggregate(pipeline);
+      const totalCount = pgList[0]?.totalCount[0]?.count || 0;
+
+      let final_response = [];
+
+      if (Array.isArray(coordinates) && coordinates.length === 0) {
+        final_response = pgList[0]?.data;
+      } else {
+        final_response = [];
+      }
+
+      if (Array.isArray(coordinates) && coordinates.length > 0) {
+        for (const pg of pgList) {
+          const { rooms, minRent, averageRating, ...rest } = pg;
+
+          const pgCoordinates = [...rest.location.coordinates].reverse();
+
+          const linearDistance = haversineDistance(
+            [...coordinates].reverse(),
+            pgCoordinates
+          );
+
+          let res_data = {
+            pginfo: {
+              ...rest,
+              minRent: minRent,
+              averageRating: averageRating,
+              linearDistance: linearDistance,
+            },
+            rooms: rooms,
+          };
+
+          final_response?.push(res_data);
+        }
+      }
+
+      return ApiResponse.success(
+        res,
+        {
+          total: totalCount,
+          page,
+          per_page: show,
+          total_pages: Math.ceil(totalCount / show),
+          search: search,
+          PgList: final_response,
+        },
+        "PGs fetched successfully",
+        200
+      );
+    } catch (error) {
+      console.error(error.message);
+
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Paying Guest House Fetch Failed",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Paying Guest House Fetch Failed",
+          500,
+          error.message
+        );
+      }
+    }
+  }
+
   static async getAllPg(req, res) {
     try {
       if (!(await Database.isConnected())) {
