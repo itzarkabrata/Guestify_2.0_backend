@@ -1,14 +1,30 @@
 import { Database } from "../lib/connect.js";
 import { Booking_Model } from "../models/booking.js";
 import { redisClient } from "../lib/redis.config.js";
-import { stat } from "fs";
 import mongoose from "mongoose";
+import Stripe from "stripe";
+import {
+  ApiError,
+  AuthorizationError,
+  EvalError,
+  InternalServerError,
+  NotFoundError,
+  TypeError,
+} from "../server-utils/ApiError.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
+import { RoomInfo_Model } from "../models/roominfo.js";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2025-10-29.clover",
+});
 
 export class Payment {
   static async isActivePaymentSession(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
       const { booking_id } = req?.params;
 
@@ -16,9 +32,7 @@ export class Payment {
 
       // check-1 : check if booking exists or not
       if (!booking_info) {
-        return res.status(404).json({
-          message: "Booking not found",
-        });
+        throw new NotFoundError("Booking Not Found");
       }
 
       // Check 2: Check if the booking is accepted (no revolked/declined/canceled)
@@ -28,11 +42,7 @@ export class Payment {
         booking_info.revolked_at !== null ||
         booking_info.revolked_by !== null
       ) {
-        return res.status(400).json({
-          success: false,
-          status_code: 400,
-          message: "This Booking is not in Accepted State",
-        });
+        throw new EvalError("This Booking is not in Accepted State");
       }
 
       // Check 3: Check if there's an active payment session in Redis
@@ -40,34 +50,105 @@ export class Payment {
 
       const sessionExists = await redisClient?.exists(redisKey);
       if (!sessionExists) {
-        return res.status(400).json({
-          success: false,
-          status_code: 400,
-          message: "No active payment session found for this booking",
-        });
+        throw new NotFoundError(
+          "No active payment session found for this booking"
+        );
       } else {
         const data = await redisClient?.get(redisKey);
+        const { room_id, booking_id, amount } = JSON.parse(data);
+        if (booking_id !== String(booking_info._id)) {
+          throw new EvalError("Payment session booking ID mismatch");
+        }
+        if (room_id !== String(booking_info.room_id)) {
+          throw new EvalError("Payment session room ID mismatch");
+        }
         const payment_ttl = await redisClient?.ttl(redisKey);
-        return res.status(200).json({
-          success: true,
-          status_code: 200,
-          message: "Active payment session found",
-          data: {
+
+        // Aggregation for fetching, room images, room type, pg name
+        const agg_pipeline = [
+          {
+            $match: { _id: new mongoose.Types.ObjectId(room_id) },
+          },
+          {
+            $lookup: {
+              from: "pginfos",
+              localField: "pg_id",
+              foreignField: "_id",
+              as: "pg_info",
+            },
+          },
+          {
+            $unwind: "$pg_info",
+          },
+          {
+            $project: {
+              pg_name: "$pg_info.pg_name",
+              location: "$pg_info.location.coordinates",
+              room_type: 1,
+              room_images: 1,
+            },
+          },
+        ];
+
+        const [roomInfo] = await RoomInfo_Model.aggregate(agg_pipeline);
+
+        // Create Stripe Session
+        const stripeSession = await stripe.checkout.sessions.create({
+          payment_method_types: ["card"],
+          mode: "payment",
+          line_items: [
+            {
+              price_data: {
+                currency: "inr",
+                product_data: {
+                  name: `${roomInfo?.pg_name}(${roomInfo?.room_type})`,
+                  images: roomInfo?.room_images?.map((r) => r?.room_image_url),
+                  description: `Secure your stay at ${roomInfo.pg_name}. This checkout is for a ${roomInfo.room_type} room reservation. Complete payment to lock in your booking.`,
+                  metadata: {
+                    room_id: roomInfo?._id,
+                    booking_id: booking_id,
+                    user_id: req?.user?.id,
+                  },
+                },
+                unit_amount: Math.round(amount * 100),
+              },
+              quantity: 1,
+            },
+          ],
+          success_url: `${process.env.FRONTEND_URL}/thankyou?lat=${roomInfo?.location[1]}&long=${roomInfo?.location[0]}`,
+          cancel_url: `${process.env.FRONTEND_URL}/profile/${req?.user?.id}/my-bookings`,
+        });
+
+        return ApiResponse.success(
+          res,
+          {
             booking_id: booking_id,
             room_id: booking_info?.room_id,
             payment_ttl: payment_ttl,
             session_data: JSON.parse(data),
+            session_url: stripeSession.url,
           },
-        });
+          "Active payment session verified. Stripe session created.",
+          200
+        );
       }
     } catch (error) {
       console.error("Failed to validate Session", error);
-      res.status(500).json({
-        success: false,
-        status_code: 500,
-        message: "Failed to validate Session",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Failed to validate session",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Failed to validate session",
+          500,
+          error.message
+        );
+      }
     }
   }
 
@@ -173,6 +254,7 @@ export class Payment {
         // create new payment session
         const payment_info = JSON.stringify({
           room_id,
+          booking_id,
           amount,
           payment_dunning,
           message,
@@ -212,5 +294,75 @@ export class Payment {
         error: error.message,
       });
     }
+  }
+
+  static async handlePaymentSuccess(paymentData) {
+    try {
+      if(!Database.isConnected()){
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
+      }
+      const { room_id, booking_id, user_id } = paymentData?.metadata;
+
+      // Marks the payment at field in booking schema
+      const booking_info = await Booking_Model.findByIdAndUpdate(
+        booking_id,
+        {
+          payment_at: new Date(),
+        },
+        { new: true }
+      );
+
+      if (!booking_info) {
+        throw new NotFoundError("Booking Not Found for marking payment");
+      }
+
+      // Change booking status and booked by in room schema
+      const room_info = await RoomInfo_Model.findByIdAndUpdate(
+        room_id,
+        {
+          booked_by: user_id,
+          booking_status: "This Room is Booked"
+        },
+        { new: true }
+      );
+
+      if (!room_info) {
+        throw new NotFoundError("Room Not Found for updating booking status");
+      }
+
+      // Delete the active payment session from Redis
+      const redisKey = `payment-${room_id}`;
+      await redisClient.del(redisKey);
+
+      // Delete stripe payment session
+      await stripe.checkout.sessions.expire(paymentData.id);
+
+      
+    } catch {
+      console.error("Failed to validate Session", error);
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Failed to validate session",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Failed to validate session",
+          500,
+          error.message
+        );
+      }
+    }
+  }
+
+  static async handlePaymentFailure(paymentData) {
+    // Implement logic to handle failed payment
+    console.log("Payment Failed:", paymentData);
+    // e.g., notify user, log failure, etc.
   }
 }
