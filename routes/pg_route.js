@@ -18,6 +18,7 @@ const router = Router();
 const upload = multer({ storage: storage });
 
 router.get("/getAllPg",Pg.getAllPg);
+router.get("/getAllPgByDistrict", Pg.getAllPgByDistrict);
 router.get("/getPgForMap", Pg.getPg_forMap);
 router.get("/getPgNearMe", Pg.getPgNearMe);
 router.get("/getPgNearPg/:id",Pg.getPgNearPg);
