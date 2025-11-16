@@ -12,5 +12,6 @@ const upload = multer({ storage: storage });
 
 router.post("/uploadImage", User.isLoggedIn, upload.any(), ImageUpload.saveImage);
 router.delete("/deleteImage", User.isLoggedIn, ImageUpload.deleteImage);
+router.delete("/deleteMultipleImages", User.isLoggedIn, ImageUpload.deleteBulkImages);
 
 export const image_upload_router = router;
