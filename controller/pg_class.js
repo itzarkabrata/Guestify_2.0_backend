@@ -20,6 +20,7 @@ import {
   TypeError,
 } from "../server-utils/ApiError.js";
 import { ApiResponse } from "../server-utils/ApiResponse.js";
+import { User_Model } from "../models/users.js";
 // import { filterPGsAndRoomsByRent } from "../server-utils/publicURLFetcher.js";
 // import { Review } from "./review_class.js";
 
@@ -526,6 +527,42 @@ export class Pg {
         message: "Failed to fetch PGs",
         error: error.message,
       });
+    }
+  }
+
+  static async getPGCatelogue(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { user_id } = req?.params;
+
+      const user = await User_Model.findById(user_id);
+      if (!user) throw new NotFoundError("User not found");
+
+      const pgs = await PgInfo_Model.find({user_id: user._id},{_id: 1, pg_name: 1, address: 1, pg_type: 1});
+
+      return ApiResponse?.success(res, pgs, "Catelogue Fetched SuccessFully", 200);
+
+    } catch (error) {
+      console.error(error.message);
+
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Catelogue not Fetched SuccessFully",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Catelogue not Fetched SuccessFully",
+          500,
+          error.message
+        );
+      }
     }
   }
 
