@@ -5,6 +5,9 @@ import { getPublicIdFromUrl } from "../server-utils/publicURLFetcher.js";
 import cloudinary from "../lib/assetstorage_config.js";
 import { EventObj } from "../lib/event.config.js";
 import { AMQP } from "../lib/amqp.connect.js";
+import { PgInfo_Model } from "../models/pginfo.js";
+import { ApiError, NotFoundError } from "../server-utils/ApiError.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
 
 export class Room {
   static async CreateRoom(room, req, index) {
@@ -80,13 +83,17 @@ export class Room {
       );
 
     if (aminities) {
-        room.aminities = aminities;
+      room.aminities = aminities;
     }
 
     if (!mongoose.Types.ObjectId.isValid(pg_id))
       throw new TypeError("PG ID must be a valid ObjectId format");
 
-    const new_room = new RoomInfo_Model({ ...room, booked_by: null, booking_status: "" });
+    const new_room = new RoomInfo_Model({
+      ...room,
+      booked_by: null,
+      booking_status: "",
+    });
 
     const savedRoom = await new_room.save();
 
@@ -212,7 +219,6 @@ export class Room {
     return RoomInfo_Model.find({ pg_id: pg_id });
   }
 
-
   static async DeleteRoom(req, res) {
     try {
       if (!(await Database.isConnected())) {
@@ -305,15 +311,15 @@ export class Room {
 
       const details = await RoomInfo_Model.findById(roomid);
 
-      if(!details){
+      if (!details) {
         res?.status(404)?.json({
-          message: "Room Details Not Found"
-        })
+          message: "Room Details Not Found",
+        });
       }
 
       res.status(200).json({
         message: "Room Details Fetched Successfully",
-        data: details
+        data: details,
       });
     } catch (error) {
       console.error(error.message);
@@ -337,5 +343,48 @@ export class Room {
     ]);
 
     return result[0]?.minRent;
+  }
+
+  static async getRoomCatelogue(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { pg_id } = req?.params;
+
+      const pg = await PgInfo_Model.findById(pg_id);
+      if (!pg) throw new NotFoundError("PG ID not found");
+
+      const rooms = await RoomInfo_Model.find(
+        { pg_id: pg._id },
+        { _id: 1, pg_id: 1, room_type: 1, room_rent: 1, pg_type: 1, deposit_duration: 1 }
+      );
+
+      return ApiResponse?.success(
+        res,
+        rooms,
+        "Catelogue Fetched SuccessFully",
+        200
+      );
+    } catch (error) {
+      console.error(error.message);
+
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Catelogue not Fetched SuccessFully",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Catelogue not Fetched SuccessFully",
+          500,
+          error.message
+        );
+      }
+    }
   }
 }
