@@ -105,9 +105,9 @@ export class Payment {
                   images: roomInfo?.room_images?.map((r) => r?.room_image_url),
                   description: `Secure your stay at ${roomInfo.pg_name}. This checkout is for a ${roomInfo.room_type} room reservation. Complete payment to lock in your booking.`,
                   metadata: {
-                    room_id: roomInfo?._id,
-                    booking_id: booking_id,
-                    user_id: req?.user?.id,
+                    room_id: String(roomInfo?._id),
+                    booking_id: String(booking_id),
+                    user_id: String(req?.user?.id),
                   },
                 },
                 unit_amount: Math.round(amount * 100),
@@ -116,7 +116,7 @@ export class Payment {
             },
           ],
           success_url: `${process.env.FRONTEND_URL}/thankyou?lat=${roomInfo?.location[1]}&long=${roomInfo?.location[0]}`,
-          cancel_url: `${process.env.FRONTEND_URL}/profile/${req?.user?.id}/my-bookings`,
+          cancel_url: `${process.env.FRONTEND_URL}/profile/${String(req?.user?.id)}/my-bookings`,
         });
 
         return ApiResponse.success(
