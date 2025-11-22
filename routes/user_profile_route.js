@@ -32,6 +32,4 @@ router.delete("/deleteAccount", User.isLoggedIn, UserProfile.DeleteAccount);
 
 router.get("/getProfile/:uid", User.isLoggedIn, UserProfile.getProfile);
 
-router.get("/getStats/:uid", User.isLoggedIn, UserProfile.getStats);
-
 export const user_profile_router = router;
