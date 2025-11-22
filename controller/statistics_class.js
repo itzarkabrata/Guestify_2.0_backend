@@ -20,11 +20,9 @@ export class Statistics {
       }
 
       const { uid } = req.params;
-      const { userid } = req.body;
 
-      if (!userid) {
-        throw new AuthorizationError("Missing token");
-      }
+      const user = await User_Model.findById(uid);
+      if (!user) throw new NotFoundError("Admin not found");
 
       // Redis check
       const cachedData = await redisClient.get(`user-stats-${uid}`);
@@ -32,9 +30,6 @@ export class Statistics {
         const parsed = JSON.parse(cachedData);
         return ApiResponse.success(res, parsed, "Data fetched successfully");
       }
-
-      const user = await User_Model.findById(uid);
-      if (!user) throw new NotFoundError("Admin not found");
 
       const pipeline = [
         { $match: { user_id: user._id } },
@@ -201,7 +196,7 @@ export class Statistics {
             totalReviews: { $sum: { $size: "$reviews" } },
 
             totalBookings: { $sum: { $size: "$bookings" } },
-            pendingBookings: {$sum: {$size: "$pendingBookings"}},
+            pendingBookings: { $sum: { $size: "$pendingBookings" } },
             successfulBookings: { $sum: { $size: "$successfulBookings" } },
             totalOccupants: { $sum: { $size: "$occupants" } },
             totalRevenue: { $sum: "$monthlyRevenue" },
@@ -274,6 +269,204 @@ export class Statistics {
           error.message
         );
       }
+    }
+  }
+
+  static async getRoomEnlistedGraph(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new InternalServerError("Database not connected");
+      }
+
+      const { uid } = req.params;
+      const { year, pg_id } = req.query;
+
+      const user = await User_Model.findById(uid);
+      if (!user) throw new NotFoundError("Admin not found");
+
+      // --- Dynamic match for PGs ---
+      const pgMatch = { user_id: user._id };
+      if (pg_id) pgMatch._id = new mongoose.Types.ObjectId(String(pg_id));
+
+      // Build date filter for rooms later
+      const roomDateMatch = {};
+
+      if (year) {
+        roomDateMatch.$expr = {
+          $eq: [{ $year: "$rooms.createdAt" }, Number(year)],
+        };
+      }
+
+      const pipeline = [
+        { $match: pgMatch },
+
+        // Join Rooms
+        {
+          $lookup: {
+            from: "roominfos",
+            localField: "_id",
+            foreignField: "pg_id",
+            as: "rooms",
+          },
+        },
+
+        { $unwind: "$rooms" },
+
+        // Apply date filters only if provided
+        ...(Object.keys(roomDateMatch).length > 0
+          ? [{ $match: roomDateMatch }]
+          : []),
+
+        {
+          $group: {
+            _id: {
+              year: { $year: "$rooms.createdAt" },
+              month: { $month: "$rooms.createdAt" },
+            },
+            count: { $sum: 1 },
+          },
+        },
+
+        { $sort: { "_id.year": 1, "_id.month": 1 } },
+
+        {
+          $project: {
+            _id: 0,
+            month: {
+              $let: {
+                vars: {
+                  months: [
+                    "",
+                    "Jan",
+                    "Feb",
+                    "Mar",
+                    "Apr",
+                    "May",
+                    "Jun",
+                    "Jul",
+                    "Aug",
+                    "Sep",
+                    "Oct",
+                    "Nov",
+                    "Dec",
+                  ],
+                },
+                in: { $arrayElemAt: ["$$months", "$_id.month"] },
+              },
+            },
+            year: "$_id.year",
+            count: 1,
+          },
+        },
+      ];
+
+      const data = await PgInfo_Model.aggregate(pipeline);
+
+      return ApiResponse.success(
+        res,
+        data,
+        "Room enlisted graph fetched successfully"
+      );
+    } catch (error) {
+      console.error(error.message);
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Failed",
+          error.statusCode,
+          error.message
+        );
+      }
+      return ApiResponse.error(res, "Failed", 500, error.message);
+    }
+  }
+
+  static async getPgStats(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new InternalServerError("Database not connected");
+      }
+
+      const { uid } = req.params;
+
+      const user = await User_Model.findById(uid);
+      if (!user) throw new NotFoundError("Admin not found");
+
+      const pipeline = [
+        {$match : { user_id: user._id }},
+
+        {
+            $lookup: {
+                from: "roominfos",
+                localField: "_id",
+                foreignField: "pg_id",
+                as: "rooms"
+            }
+        },
+
+        {
+            $lookup: {
+                from: "reviews",
+                localField: "_id",
+                foreignField: "pg_id",
+                as: "reviews"
+            }
+        },
+
+        {
+            $lookup: {
+                from: "bookings",
+                let: {roomId: "$rooms._id"},
+                pipeline: [
+                    {$match: {$expr: {$in: ["$room_id","$$roomId"]}}},
+                    {$match: {payment_at: { $ne : null}}}
+                ],
+                as: "donebookings"
+            }
+        },
+
+        {
+            $lookup: {
+                from: "rooms",
+                let: {roomId: "$donebookings.room_id"},
+                pipeline: [
+                    {$match: {$expr: {$in: ["$_id","$$roomId"]}}},
+                ],
+                as: "occupiedRooms"
+            }
+        },
+
+        {
+            $project: {
+                _id: 0,
+                total_pg: { $sum : 1 },
+                total_reviews: {$sum: "$reviews"},
+                total_rooms: {
+                    count: { $size: "$rooms"},
+                    occupied: { $size: "$occupiedRooms"}
+                },
+            }
+        }
+      ]
+
+      const data = await PgInfo_Model.aggregate(pipeline);
+
+      return ApiResponse.success(
+        res,
+        data,
+        "Pg Stats fetched successfully"
+      );
+    } catch (error) {
+      console.error(error.message);
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Pg Stats not fetched",
+          error.statusCode,
+          error.message
+        );
+      }
+      return ApiResponse.error(res, "Pg Stats not fetched", 500, error.message);
     }
   }
 }
