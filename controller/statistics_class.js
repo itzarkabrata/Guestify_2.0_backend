@@ -453,7 +453,7 @@ export class Statistics {
 
       return ApiResponse.success(
         res,
-        data,
+        data[0],
         "Pg Stats fetched successfully"
       );
     } catch (error) {
