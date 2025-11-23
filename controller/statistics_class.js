@@ -476,25 +476,53 @@ export class Statistics {
       const userid = req?.user?.id;
       const is_admin = req?.user?.is_admin;
 
-      if(!userid){
+      if (!userid) {
         throw new NotFoundError("User Not Found");
       }
-      if(!is_admin){
-        throw new AuthorizationError("Users are not authorised to view stats")
+      if (!is_admin) {
+        throw new AuthorizationError("Users are not authorised to view stats");
       }
 
       const { type = "month" } = req.query;
 
-      if (!["week", "month"].includes(type)) {
+      if (!["week", "month", "day"].includes(type)) {
         throw new TypeError("Query Parameter must be either week or month");
       }
 
       let formatted = [];
 
       switch (type) {
+        case "day":
+          const day_data = await Booking_Model.aggregate([
+            {
+              $match: { admin_id: new mongoose.Types.ObjectId(String(userid)) },
+            },
+            {
+              $group: {
+                _id: {
+                  year: { $year: "$createdAt" },
+                  month: { $month: "$createdAt" },
+                  day: { $dayOfMonth: "$createdAt" },
+                },
+                count: { $sum: 1 },
+              },
+            },
+            { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
+          ]);
+
+          formatted = day_data?.map((item) => ({
+            label: `${item._id.year}-${String(item._id.month).padStart(
+              2,
+              "0"
+            )}-${String(item._id.day).padStart(2, "0")}`, // Example: "2025-11-23"
+            value: item.count,
+          }));
+          break;
         case "week":
           const week_data = await Booking_Model.aggregate([
-            { $match : {admin_id : new mongoose.Types.ObjectId(String(userid))}},
+            {
+              $match: { admin_id: new mongoose.Types.ObjectId(String(userid)) },
+            },
             {
               $group: {
                 _id: {
@@ -514,7 +542,9 @@ export class Statistics {
           break;
         case "month":
           const month_data = await Booking_Model.aggregate([
-            { $match : {admin_id : new mongoose.Types.ObjectId(String(userid))}},
+            {
+              $match: { admin_id: new mongoose.Types.ObjectId(String(userid)) },
+            },
             {
               $group: {
                 _id: {
@@ -540,7 +570,6 @@ export class Statistics {
       }
 
       return ApiResponse.success(res, formatted, "Data fetched successfully");
-
     } catch (error) {
       console.error(error.message);
       if (error instanceof ApiError) {
