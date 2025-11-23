@@ -13,4 +13,7 @@ router.get("/statistics/:uid/graph/rooms", User.isLoggedIn, Statistics.getRoomEn
 // Get stats for Paying Guests for a particular user
 router.get("/statistics/:uid/pg", User.isLoggedIn, Statistics.getPgStats);
 
+// Get stats for Booking for a particular user
+router.get("/statistics/graph/bookings", User.isLoggedIn, Statistics.getBookingEnlist);
+
 export const statistics_router = router;
