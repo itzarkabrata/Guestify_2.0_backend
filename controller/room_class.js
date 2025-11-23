@@ -358,7 +358,7 @@ export class Room {
 
       const rooms = await RoomInfo_Model.find(
         { pg_id: pg._id },
-        { _id: 1, pg_id: 1, room_type: 1, room_rent: 1, pg_type: 1, deposit_duration: 1 }
+        { _id: 1, pg_id: 1, room_type: 1, room_rent: 1, pg_type: 1, deposit_duration: 1, booked_by: 1, booking_status: 1 }
       );
 
       return ApiResponse?.success(

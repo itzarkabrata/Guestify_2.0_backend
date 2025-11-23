@@ -26,6 +26,9 @@ import { payment_router } from "./routes/payment_route.js";
 import { webhook_router } from "./routes/webhook_route.js";
 import { statistics_router } from "./routes/stat_route.js";
 
+// Import CRON JOB Workers
+import { CronManager } from "./cron-job-worker/index.js";
+
 // Resolve __dirname in ES modules
 export const __filename = fileURLToPath(import.meta.url);
 export const __dirname = path.dirname(__filename);
@@ -119,6 +122,9 @@ server.listen(port_number, async () => {
 
     // continuously consuming messages from delete wishlist queue
     await AMQP.consumeWishlistItem_DLQ("delete-wishlist-queue");
+
+    // start Cron
+    await CronManager.startAll();
     
   } catch (err) {
     console.log(err.message);
