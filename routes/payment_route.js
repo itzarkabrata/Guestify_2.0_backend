@@ -8,7 +8,7 @@ const router = Router();
 router.get("/booking/:booking_id/payment/active-session", User.isLoggedIn, Payment.isActivePaymentSession);
 
 // Find if there's an active payment session for the booking ticket
-router.get("/booking/session/success", User.isLoggedIn, Payment.getSessionInformation);
+router.get("/booking/session/success", Payment.getSessionInformation);
 
 // Cancel Payment Session
 router.patch("/booking/:booking_id/payment/close", User.isLoggedIn, Payment.cancelPaymentSession);
