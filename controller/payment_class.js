@@ -152,6 +152,48 @@ export class Payment {
     }
   }
 
+  static async getSessionInformation(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { session_id } = req?.query;
+
+      if (!session_id) {
+        throw new NotFoundError("Session ID not found");
+      }
+
+      const session = await stripe.checkout.sessions.retrieve(session_id, {
+        expand: ["customer_details", "payment_intent"],
+      });
+
+      const {customer_details, amount_total, currency, payment_intent, id} = session;
+
+      const data = {customer_details, amount_total, currency, payment_intent, id};
+
+      return ApiResponse?.success(res, data, "Session Data Fetched Successfully");
+      
+    } catch (error) {
+      console.error("Error while getting Payment Session information", error);
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Error while getting Payment Session information",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Error while getting Payment Session information",
+          500,
+          error.message
+        );
+      }
+    }
+  }
+
   static async cancelPaymentSession(req, res) {
     try {
       if (!(await Database.isConnected())) {
