@@ -115,7 +115,7 @@ export class Payment {
               quantity: 1,
             },
           ],
-          success_url: `${process.env.FRONTEND_URL}/thankyou?lat=${roomInfo?.location[1]}&long=${roomInfo?.location[0]}`,
+          success_url: `${process.env.FRONTEND_URL}/thankyou?session_id={CHECKOUT_SESSION_ID}&lat=${roomInfo?.location[1]}&long=${roomInfo?.location[0]}`,
           cancel_url: `${process.env.FRONTEND_URL}/profile/${String(req?.user?.id)}/my-bookings`,
         });
 

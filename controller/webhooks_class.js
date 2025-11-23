@@ -17,6 +17,10 @@ export class Webhooks {
         );
       }
 
+      console.log("Webhook Called======");
+
+      console.log("Request", req);
+
       const sig = req.headers["stripe-signature"];
 
       let event;
@@ -38,6 +42,7 @@ export class Webhooks {
             break;
 
           case "checkout.session.expired":
+            break;
           case "payment_intent.payment_failed":
             await Payment.handlePaymentFailure(event.data.object);
             break;
