@@ -137,6 +137,7 @@ export class Booking {
           $project: {
             _id: 0,
             booking_id: "$_id",
+            payment_at: "$payment_at",
             booking_date: "$createdAt",
             status: 1,
             status_timestamp: 1,

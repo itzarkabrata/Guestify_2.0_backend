@@ -10,20 +10,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 
 export class Webhooks {
   static async handleStripeWebhook(req, res) {
-    console.log("====================================");
-    console.log("🎯 WEBHOOK HIT");
-    console.log("Body Type:", typeof req.body);
-    console.log("Body is Buffer:", Buffer.isBuffer(req.body));
-    console.log("Body is String:", typeof req.body === "string");
-    console.log(
-      "Body is Object:",
-      typeof req.body === "object" && !Buffer.isBuffer(req.body)
-    );
-    console.log(
-      "Stripe Signature:",
-      req.headers["stripe-signature"] ? "Present" : "Missing"
-    );
-    console.log("====================================");
     try {
       if (!Database.isConnected()) {
         throw new InternalServerError(
