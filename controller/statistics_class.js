@@ -155,24 +155,39 @@ export class Statistics {
                         },
                       },
                       in: {
-                        // Revenue calculation based on rent_type
-                        $switch: {
-                          branches: [
-                            {
-                              case: { $eq: ["$$room.rent_type", "monthly"] },
-                              then: "$$room.rent",
-                            },
-                            {
-                              case: { $eq: ["$$room.rent_type", "quarterly"] },
-                              then: { $divide: ["$$room.rent", 3] },
-                            },
-                            {
-                              case: { $eq: ["$$room.rent_type", "yearly"] },
-                              then: { $divide: ["$$room.rent", 12] },
-                            },
-                          ],
-                          default: 0,
-                        },
+                        $cond: [
+                          { $eq: ["$$room.deposit_duration", "monthly"] },
+                          "$$room.room_rent",
+                          {
+                            $cond: [
+                              { $eq: ["$$room.deposit_duration", "quarterly"] },
+                              { $divide: ["$$room.room_rent", 3] },
+                              {
+                                $cond: [
+                                  {
+                                    $eq: [
+                                      "$$room.deposit_duration",
+                                      "halfyearly",
+                                    ],
+                                  },
+                                  { $divide: ["$$room.room_rent", 6] },
+                                  {
+                                    $cond: [
+                                      {
+                                        $eq: [
+                                          "$$room.deposit_duration",
+                                          "yearly",
+                                        ],
+                                      },
+                                      { $divide: ["$$room.room_rent", 12] },
+                                      0,
+                                    ],
+                                  },
+                                ],
+                              },
+                            ],
+                          },
+                        ],
                       },
                     },
                   },
@@ -241,6 +256,10 @@ export class Statistics {
         avgRoomsPerPG: 0,
         pgsByMonth: [],
       };
+
+      finalResponse.bookingPercentage = Math.round(finalResponse.bookingPercentage * 100) / 100;
+
+      finalResponse.totalRevenue = Math.round(finalResponse.totalRevenue * 100) / 100;
 
       // Cache for 5 mins
       await redisClient.set(
