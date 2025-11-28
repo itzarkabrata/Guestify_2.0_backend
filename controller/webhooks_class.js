@@ -5,7 +5,7 @@ import { InternalServerError } from "../server-utils/ApiError.js";
 import { Payment } from "./payment_class.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-10-29.clover",
+  apiVersion: "2023-10-16",
 });
 
 export class Webhooks {
@@ -17,9 +17,9 @@ export class Webhooks {
         );
       }
 
-      console.log("Webhook Called======");
+      // console.log("Webhook Called======");
 
-      console.log("Request", req);
+      // console.log("Request", req);
 
       const sig = req.headers["stripe-signature"];
 
@@ -48,10 +48,10 @@ export class Webhooks {
             break;
         }
 
-        res.status(200).send("OK");
+        return ApiResponse.success(res, { received: true, event: event.type || ""}, "Webhook runs successfully", 200);
       } catch (err) {
         console.error(err);
-        res.status(500).send("Webhook error");
+        return ApiResponse.error(res, "Webhook Failed", 500, err.message);
       }
     } catch (error) {
       console.error("Error in Stripe webhook handler:", error);
