@@ -53,6 +53,10 @@ app.use(
 );
 app.use("/user-assets", express.static(path.join(__dirname, "user-assets")));
 app.use(express.urlencoded({ extended: true }));
+
+// Stripe Middleware as stripe accepts only raw
+app.use("/backend/stripe/webhook", express.raw({ type: "application/json" }));
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(compression());

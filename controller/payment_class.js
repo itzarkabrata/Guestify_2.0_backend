@@ -15,7 +15,7 @@ import { ApiResponse } from "../server-utils/ApiResponse.js";
 import { RoomInfo_Model } from "../models/roominfo.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-10-29.clover",
+  apiVersion: "2023-10-16",
 });
 
 export class Payment {
@@ -104,17 +104,17 @@ export class Payment {
                   name: `${roomInfo?.pg_name}(${roomInfo?.room_type})`,
                   images: roomInfo?.room_images?.map((r) => r?.room_image_url),
                   description: `Secure your stay at ${roomInfo.pg_name}. This checkout is for a ${roomInfo.room_type} room reservation. Complete payment to lock in your booking.`,
-                  metadata: {
-                    room_id: String(roomInfo?._id),
-                    booking_id: String(booking_id),
-                    user_id: String(req?.user?.id),
-                  },
                 },
                 unit_amount: Math.round(amount * 100),
               },
               quantity: 1,
             },
           ],
+          metadata: {
+            room_id: String(roomInfo?._id),
+            booking_id: String(booking_id),
+            user_id: String(req?.user?.id),
+          },
           success_url: `${process.env.FRONTEND_URL}/thankyou?session_id={CHECKOUT_SESSION_ID}&lat=${roomInfo?.location[1]}&long=${roomInfo?.location[0]}`,
           cancel_url: `${process.env.FRONTEND_URL}/profile/${String(req?.user?.id)}/my-bookings`,
         });
@@ -379,10 +379,10 @@ export class Payment {
       await redisClient.del(redisKey);
 
       // Delete stripe payment session
-      await stripe.checkout.sessions.expire(paymentData.id);
+      // await stripe.checkout.sessions.expire(paymentData.id);
 
       
-    } catch {
+    } catch (error) {
       console.error("Failed to validate Session", error);
       if (error instanceof ApiError) {
         return ApiResponse.error(
