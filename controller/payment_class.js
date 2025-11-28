@@ -338,7 +338,7 @@ export class Payment {
     }
   }
 
-  static async handlePaymentSuccess(paymentData) {
+  static async handlePaymentSuccess(res, paymentData) {
     try {
       if(!Database.isConnected()){
         throw new InternalServerError(
@@ -402,7 +402,7 @@ export class Payment {
     }
   }
 
-  static async handlePaymentFailure(paymentData) {
+  static async handlePaymentFailure(res, paymentData) {
     // Implement logic to handle failed payment
     console.log("Payment Failed:", paymentData);
     // e.g., notify user, log failure, etc.
