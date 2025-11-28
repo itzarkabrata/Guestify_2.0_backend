@@ -38,13 +38,15 @@ export class Webhooks {
       try {
         switch (event.type) {
           case "checkout.session.completed":
-            await Payment.handlePaymentSuccess(event.data.object);
+            await Payment.handlePaymentSuccess(res,event.data.object);
             break;
 
           case "checkout.session.expired":
             break;
           case "payment_intent.payment_failed":
-            await Payment.handlePaymentFailure(event.data.object);
+            await Payment.handlePaymentFailure(res,event.data.object);
+            break;
+          default:
             break;
         }
 
