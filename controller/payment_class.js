@@ -97,6 +97,7 @@ export class Payment {
         const stripeSession = await stripe.checkout.sessions.create({
           payment_method_types: ["card"],
           mode: "payment",
+          customer_creation: "always",
           line_items: [
             {
               price_data: {
