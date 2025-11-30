@@ -257,9 +257,15 @@ export class Statistics {
         pgsByMonth: [],
       };
 
-      finalResponse.bookingPercentage = Math.round(finalResponse.bookingPercentage * 100) / 100;
+      // Make round of 2 for each decimal responses
+      finalResponse.bookingPercentage =
+        Math.round(finalResponse.bookingPercentage * 100) / 100;
 
-      finalResponse.totalRevenue = Math.round(finalResponse.totalRevenue * 100) / 100;
+      finalResponse.totalRevenue =
+        Math.round(finalResponse.totalRevenue * 100) / 100;
+
+      finalResponse.averageRoomsPerPG =
+        Math.round(finalResponse.averageRoomsPerPG * 100) / 100;
 
       // Cache for 5 mins
       await redisClient.set(
@@ -438,10 +444,16 @@ export class Statistics {
         {
           $lookup: {
             from: "bookings",
-            let: { roomId: "$rooms._id" },
+            let: { roomIds: "$rooms._id" },
             pipeline: [
-              { $match: { $expr: { $in: ["$room_id", "$$roomId"] } } },
-              { $match: { payment_at: { $ne: null } } },
+              {
+                $match: {
+                  $expr: { $in: ["$room_id", "$$roomIds"] },
+                },
+              },
+              {
+                $match: { payment_at: { $ne: null } },
+              },
             ],
             as: "donebookings",
           },
@@ -449,29 +461,64 @@ export class Statistics {
 
         {
           $lookup: {
-            from: "rooms",
-            let: { roomId: "$donebookings.room_id" },
-            pipeline: [{ $match: { $expr: { $in: ["$_id", "$$roomId"] } } }],
+            from: "roominfos",
+            let: { occupiedRoomIds: "$donebookings.room_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $in: ["$_id", "$$occupiedRoomIds"] },
+                },
+              },
+            ],
             as: "occupiedRooms",
           },
         },
 
         {
           $project: {
-            _id: 0,
-            total_pg: { $sum: 1 },
-            total_reviews: { $sum: "$reviews" },
+            total_reviews: { $size: "$reviews" },
+
             total_rooms: {
-              count: { $size: "$rooms" },
+              total: { $size: "$rooms" },
               occupied: { $size: "$occupiedRooms" },
+              available: {
+                $subtract: [{ $size: "$rooms" }, { $size: "$occupiedRooms" }],
+              },
             },
+          },
+        },
+
+        {
+          $group: {
+            _id: null,
+            total_pg: { $sum: 1 },
+            total_reviews: { $sum: "$total_reviews" },
+            total_rooms: { $sum: "$total_rooms.total" },
+            occupied_rooms: { $sum: "$total_rooms.occupied" },
+            available_rooms: { $sum: "$total_rooms.available" },
+          },
+        },
+
+        {
+          $project: {
+            _id: 0,
+            total_pg: 1,
+            total_reviews: 1,
+            total_rooms: 1,
+            occupied_rooms: 1,
+            available_rooms: 1,
           },
         },
       ];
 
       const data = await PgInfo_Model.aggregate(pipeline);
 
-      return ApiResponse.success(res, data[0], "Pg Stats fetched successfully");
+      const result = {
+        ...data[0],
+        percent_occupied: Math.round(((data[0].occupied_rooms / data[0].total_rooms) * 100) * 100) / 100
+      }
+
+      return ApiResponse.success(res, result, "Pg Stats fetched successfully");
     } catch (error) {
       console.error(error.message);
       if (error instanceof ApiError) {

@@ -236,6 +236,11 @@ export class Room {
         throw new TypeError("Invalid Room ID format");
       }
 
+      // Check if the room booked
+      if(Room.IsRoomBooked(roomid)){
+        throw new Error("This room has already been Booked");
+      }
+
       // extract and delete old image if exists
       const prev_img = await RoomInfo_Model.findOne(
         { _id: roomid },
@@ -343,6 +348,25 @@ export class Room {
     ]);
 
     return result[0]?.minRent;
+  }
+
+  static async IsRoomBooked(room_id){
+    if (!(await Database.isConnected())) {
+      throw new Error("Database server is not connected properly");
+    }
+
+    if (!room_id) {
+      throw new Error("Room ID is required");
+    }
+
+    const room_booking_state = await RoomInfo_Model.findById(room_id);
+
+    // Check if the room has any booked by or not
+    if (room_booking_state?.booked_by !== null) {
+      return true;
+    } else {
+      return false;
+    }
   }
 
   static async getRoomCatelogue(req, res) {
