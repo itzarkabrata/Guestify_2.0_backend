@@ -168,9 +168,22 @@ export class Payment {
         expand: ["customer_details", "payment_intent"],
       });
 
+      const lineItems = await stripe.checkout.sessions.listLineItems(session_id, {
+        expand: ['data.price.product']
+      })
+      const item = lineItems.data[0] || {};
+
+      const roomInfo = {
+        room_name: item.price.product.name,
+        room_description: item.price.product.description,
+        image: item.price.product.images[0],
+        price: item.price.unit_amount / 100,
+        total: item.amount_total / 100,
+      };
+
       const {customer_details, amount_total, currency, payment_intent, id} = session;
 
-      const data = {customer_details, amount_total, currency, payment_intent, id};
+      const data = {customer_details, amount_total, currency, payment_intent, id, room_info: roomInfo};
 
       return ApiResponse?.success(res, data, "Session Data Fetched Successfully");
       
