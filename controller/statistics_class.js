@@ -257,9 +257,12 @@ export class Statistics {
         pgsByMonth: [],
       };
 
+      // Make round of 2 for each decimal responses
       finalResponse.bookingPercentage = Math.round(finalResponse.bookingPercentage * 100) / 100;
 
       finalResponse.totalRevenue = Math.round(finalResponse.totalRevenue * 100) / 100;
+
+      finalResponse.averageRoomsPerPG = Math.round(finalResponse.averageRoomsPerPG * 100) / 100;
 
       // Cache for 5 mins
       await redisClient.set(
