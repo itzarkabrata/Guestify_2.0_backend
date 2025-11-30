@@ -7,8 +7,44 @@ import { AMQP } from "../lib/amqp.connect.js";
 import { User_Model } from "../models/users.js";
 import { RoomInfo_Model } from "../models/roominfo.js";
 import { redisClient } from "../lib/redis.config.js";
+import { InternalServerError, NotFoundError } from "../server-utils/ApiError.js";
 
 export class Booking {
+
+  static async getBookingState(booking_id){
+    try {
+      if (!(await Database.isConnected())) {
+        throw new InternalServerError("Database server is not connected properly");
+      }
+      if(!booking_id){
+        throw new NotFoundError("Booking ID is required");
+      }
+      const booking_info = await Booking_Model.findById(booking_id);
+
+      if(!booking_info){
+        throw new NotFoundError("No booking found for this id");
+      }
+
+      if(booking_info?.revolked_by !== null){
+        return "revolked";
+      }
+      else if(booking_info?.accepted_by !== null){
+        return "accepted";
+      }
+      else if(booking_info?.declined_by !== null){
+        return "declined";
+      }
+      else if(booking_info?.canceled_by !== null){
+        return "cancelled";
+      }
+      else{
+        return "pending";
+      }
+    } catch (error) {
+      console.error("Error: ", error.message);
+    }
+  }
+
   static async getAllRoomBookings(req, res) {
     try {
       if (!(await Database.isConnected())) {

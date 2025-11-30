@@ -1318,6 +1318,14 @@ export class Pg {
         throw new TypeError("Invalid PG ID format");
       }
 
+      // Check if the room under this pg is booked by or not
+      const room_info = await RoomInfo_Model.find({pg_id: id, booked_by: { $ne: null }}, {_id: 1, booked_by:1, booking_status: 1});
+
+      if(room_info?.length > 0){
+        throw new Error(`${room_info?.length} Rooms are Booked under this Paying Guest House`);
+      }
+
+
       // extract and delete old image if exists
       const prev_img = await PgInfo_Model.findOne(
         { _id: id },
