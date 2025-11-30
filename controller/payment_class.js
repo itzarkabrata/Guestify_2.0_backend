@@ -378,14 +378,18 @@ export class Payment {
       }
       const { booking_id } = req?.params;
 
-      if(!booking_id){
+      if (!booking_id) {
         throw new TypeError("Booking Id params is required");
       }
 
-      const payment_info = await Payment_Model.find({booking_id: booking_id});
+      const payment_info = await Payment_Model.find({ booking_id: booking_id });
 
-      return ApiResponse?.success(res, payment_info, "Payment Logs fetched successfully", 200);
-
+      return ApiResponse?.success(
+        res,
+        payment_info,
+        "Payment Logs fetched successfully",
+        200
+      );
     } catch (error) {
       console.error("Error in retreving payment logs:", error);
       if (error instanceof ApiError) {
@@ -399,6 +403,130 @@ export class Payment {
         return ApiResponse.error(
           res,
           "Error in retreving payment logs",
+          500,
+          error.message
+        );
+      }
+    }
+  }
+
+  static async getPaymentLogsPerAdmin(req, res) {
+    try {
+      if (!Database.isConnected()) {
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
+      }
+      const { id, is_admin } = req?.user;
+
+      if (!is_admin) {
+        throw new AuthorizationError(
+          "Users are not authorize to view Admin Payment Logs"
+        );
+      }
+
+      const pipeline = [
+        // 1️⃣ Match bookings that belong to this user/admin
+        {
+          $match: {
+            admin_id: new mongoose.Types.ObjectId(String(id)),
+          },
+        },
+
+        // 2️⃣ Lookup payments using booking_id
+        {
+          $lookup: {
+            from: "payments",
+            localField: "_id", // booking _id
+            foreignField: "booking_id", // payments.booking_id
+            as: "payments",
+          },
+        },
+
+        // 3️⃣ Flatten payments array → one document per payment
+        {
+          $unwind: "$payments",
+        },
+
+        // 4️⃣ Replace root with only the payment object
+        {
+          $replaceRoot: {
+            newRoot: "$payments",
+          },
+        },
+
+        // 5️⃣ (Optional) Sort latest first
+        {
+          $sort: { createdAt: -1 },
+        },
+      ];
+
+      const payment_info = await Booking_Model.aggregate(pipeline);
+
+      return ApiResponse?.success(
+        res,
+        payment_info,
+        "Payment Logs fetched successfully",
+        200
+      );
+    } catch (error) {
+      console.error("Error in retreving payment logs:", error);
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Error in retreving payment logs",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Error in retreving payment logs",
+          500,
+          error.message
+        );
+      }
+    }
+  }
+
+  static async DeletePaymentLog(req, res) {
+    try {
+      if (!Database.isConnected()) {
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
+      }
+      const { log_id } = req?.params;
+
+      if (!log_id) {
+        throw new TypeError("Payment Log Id params is required");
+      }
+
+      const payment_info = await Payment_Model.findByIdAndDelete(log_id);
+
+      if(!payment_info){
+        throw new NotFoundError("Payment Log not found");
+      }
+
+      return ApiResponse?.success(
+        res,
+        payment_info,
+        "Payment Logs deleted successfully",
+        200
+      );
+    } catch (error) {
+      console.error("Error in deleting payment logs:", error);
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Error in deleting payment logs",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Error in deleting payment logs",
           500,
           error.message
         );
@@ -493,6 +621,10 @@ export class Payment {
       },
     });
     const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
+    // Mark it as paid (because Checkout already collected money)
+    await stripe.invoices.pay(finalizedInvoice.id, {
+      paid_out_of_band: true,
+    });
     const pdfUrl = finalizedInvoice.invoice_pdf;
 
     const new_payment = new Payment_Model({
@@ -500,7 +632,7 @@ export class Payment {
       amount: amount_total / 100,
       payment_status: payment_status || "paid",
       payment_method: payment_method_types?.[0] || "card",
-      transaction_id: payment_intent | null,
+      transaction_id: payment_intent || null,
       invoice: {
         url: pdfUrl,
         generated_at: pdfUrl ? new Date() : null,
