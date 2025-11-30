@@ -382,7 +382,7 @@ export class Payment {
         throw new TypeError("Booking Id params is required");
       }
 
-      const payment_info = Payment_Model.find({booking_id: booking_id});
+      const payment_info = await Payment_Model.find({booking_id: booking_id});
 
       return ApiResponse?.success(res, payment_info, "Payment Logs fetched successfully", 200);
 
@@ -455,7 +455,8 @@ export class Payment {
 
     // 2) Get the lineitems (room details)
     const lineitems = await stripe.checkout.sessions.listLineItems(id, {
-      limit: 10,
+      limit: 1,
+      expand: ["data.price.product"],
     });
     const item = lineitems?.data?.[0] || {};
 
@@ -470,7 +471,7 @@ export class Payment {
     // 3) Crete invoice items
     await stripe.invoiceItems.create({
       customer: paymentData.customer,
-      amount: room_details?.total,
+      amount: item.price.unit_amount,
       currency: item.currency,
       description: room_details?.name,
       metadata: {
@@ -484,6 +485,7 @@ export class Payment {
     const invoice = await stripe.invoices.create({
       customer: paymentData.customer,
       auto_advance: true,
+      pending_invoice_items_behavior: "include",
       metadata: {
         booking_id,
         room_id,
