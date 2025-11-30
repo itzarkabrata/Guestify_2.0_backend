@@ -384,7 +384,7 @@ export class Payment {
       const payment_info = Payment_Model.find({booking_id: booking_id});
 
       return ApiResponse?.success(res, payment_info, "Payment Logs fetched successfully", 200);
-      
+
     } catch (error) {
       console.error("Error in retreving payment logs:", error);
       if (error instanceof ApiError) {
@@ -461,7 +461,7 @@ export class Payment {
     const room_details = {
       name: item.price.product.name || "",
       description: item.price.product.description || "",
-      image: item.price.product.images[0] || null,
+      // image: item.price.product.images[0] || null,
       price: item.price.unit_amount, // in paise
       total: item.amount_total, // in paise
     };
