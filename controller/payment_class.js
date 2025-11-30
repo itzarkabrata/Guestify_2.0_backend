@@ -13,6 +13,7 @@ import {
 } from "../server-utils/ApiError.js";
 import { ApiResponse } from "../server-utils/ApiResponse.js";
 import { RoomInfo_Model } from "../models/roominfo.js";
+import { Payment_Model } from "../models/payment.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2023-10-16",
@@ -116,7 +117,9 @@ export class Payment {
             user_id: String(req?.user?.id),
           },
           success_url: `${process.env.FRONTEND_URL}/thankyou?session_id={CHECKOUT_SESSION_ID}&lat=${roomInfo?.location[1]}&long=${roomInfo?.location[0]}`,
-          cancel_url: `${process.env.FRONTEND_URL}/profile/${String(req?.user?.id)}/my-bookings`,
+          cancel_url: `${process.env.FRONTEND_URL}/profile/${String(
+            req?.user?.id
+          )}/my-bookings`,
         });
 
         return ApiResponse.success(
@@ -168,9 +171,12 @@ export class Payment {
         expand: ["customer_details", "payment_intent"],
       });
 
-      const lineItems = await stripe.checkout.sessions.listLineItems(session_id, {
-        expand: ['data.price.product']
-      })
+      const lineItems = await stripe.checkout.sessions.listLineItems(
+        session_id,
+        {
+          expand: ["data.price.product"],
+        }
+      );
       const item = lineItems.data[0] || {};
 
       const roomInfo = {
@@ -181,12 +187,23 @@ export class Payment {
         total: item.amount_total / 100,
       };
 
-      const {customer_details, amount_total, currency, payment_intent, id} = session;
+      const { customer_details, amount_total, currency, payment_intent, id } =
+        session;
 
-      const data = {customer_details, amount_total, currency, payment_intent, id, room_info: roomInfo};
+      const data = {
+        customer_details,
+        amount_total,
+        currency,
+        payment_intent,
+        id,
+        room_info: roomInfo,
+      };
 
-      return ApiResponse?.success(res, data, "Session Data Fetched Successfully");
-      
+      return ApiResponse?.success(
+        res,
+        data,
+        "Session Data Fetched Successfully"
+      );
     } catch (error) {
       console.error("Error while getting Payment Session information", error);
       if (error instanceof ApiError) {
@@ -351,63 +368,36 @@ export class Payment {
     }
   }
 
-  static async handlePaymentSuccess(res, paymentData) {
+  static async getPaymentLogs(req, res) {
     try {
-      if(!Database.isConnected()){
+      if (!Database.isConnected()) {
         throw new InternalServerError(
           "Database server is not connected properly"
         );
       }
-      const { room_id, booking_id, user_id } = paymentData?.metadata;
+      const { booking_id } = req?.params;
 
-      // Marks the payment at field in booking schema
-      const booking_info = await Booking_Model.findByIdAndUpdate(
-        booking_id,
-        {
-          payment_at: new Date(),
-        },
-        { new: true }
-      );
-
-      if (!booking_info) {
-        throw new NotFoundError("Booking Not Found for marking payment");
+      if(!booking_id){
+        throw new TypeError("Booking Id params is required");
       }
 
-      // Change booking status and booked by in room schema
-      const room_info = await RoomInfo_Model.findByIdAndUpdate(
-        room_id,
-        {
-          booked_by: user_id,
-          booking_status: "This Room is Booked"
-        },
-        { new: true }
-      );
+      const payment_info = Payment_Model.find({booking_id: booking_id});
 
-      if (!room_info) {
-        throw new NotFoundError("Room Not Found for updating booking status");
-      }
-
-      // Delete the active payment session from Redis
-      const redisKey = `payment-${room_id}`;
-      await redisClient.del(redisKey);
-
-      // Delete stripe payment session
-      // await stripe.checkout.sessions.expire(paymentData.id);
-
+      return ApiResponse?.success(res, payment_info, "Payment Logs fetched successfully", 200);
       
     } catch (error) {
-      console.error("Failed to validate Session", error);
+      console.error("Error in retreving payment logs:", error);
       if (error instanceof ApiError) {
         return ApiResponse.error(
           res,
-          "Failed to validate session",
+          "Error in retreving payment logs",
           error.statusCode,
           error.message
         );
       } else {
         return ApiResponse.error(
           res,
-          "Failed to validate session",
+          "Error in retreving payment logs",
           500,
           error.message
         );
@@ -415,7 +405,119 @@ export class Payment {
     }
   }
 
-  static async handlePaymentFailure(res, paymentData) {
+  static async handlePaymentSuccess(paymentData, session) {
+    if (!Database.isConnected()) {
+      throw new InternalServerError(
+        "Database server is not connected properly"
+      );
+    }
+    const { room_id, booking_id, user_id } = paymentData?.metadata;
+
+    // Marks the payment at field in booking schema
+    const booking_info = await Booking_Model.findByIdAndUpdate(
+      booking_id,
+      {
+        payment_at: new Date(),
+      },
+      { new: true, session: session }
+    );
+
+    if (!booking_info) {
+      throw new NotFoundError("Booking Not Found for marking payment");
+    }
+
+    // Change booking status and booked by in room schema
+    const room_info = await RoomInfo_Model.findByIdAndUpdate(
+      room_id,
+      {
+        booked_by: user_id,
+        booking_status: "This Room is Booked",
+      },
+      { new: true, session: session }
+    );
+
+    if (!room_info) {
+      throw new NotFoundError("Room Not Found for updating booking status");
+    }
+
+    // ========= Add a record in the Payment Collection ========
+
+    // 1) extract payment informations
+    const {
+      id,
+      amount_total,
+      payment_intent,
+      payment_method_types,
+      payment_status,
+      customer_details,
+    } = paymentData;
+
+    // 2) Get the lineitems (room details)
+    const lineitems = await stripe.checkout.sessions.listLineItems(id, {
+      limit: 10,
+    });
+    const item = lineitems?.data?.[0] || {};
+
+    const room_details = {
+      name: item.price.product.name || "",
+      description: item.price.product.description || "",
+      image: item.price.product.images[0] || null,
+      price: item.price.unit_amount, // in paise
+      total: item.amount_total, // in paise
+    };
+
+    // 3) Crete invoice items
+    await stripe.invoiceItems.create({
+      customer: paymentData.customer,
+      amount: room_details?.total,
+      currency: item.currency,
+      description: room_details?.name,
+      metadata: {
+        booking_id,
+        room_id,
+        user_id,
+      },
+    });
+
+    // 4) create invoice
+    const invoice = await stripe.invoices.create({
+      customer: paymentData.customer,
+      auto_advance: true,
+      metadata: {
+        booking_id,
+        room_id,
+        user_id,
+      },
+    });
+    const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
+    const pdfUrl = finalizedInvoice.invoice_pdf;
+
+    const new_payment = new Payment_Model({
+      booking_id: booking_id,
+      amount: amount_total / 100,
+      payment_status: payment_status || "paid",
+      payment_method: payment_method_types?.[0] || "card",
+      transaction_id: payment_intent | null,
+      invoice: {
+        url: pdfUrl,
+        generated_at: pdfUrl ? new Date() : null,
+      },
+      intent: {
+        name: customer_details?.name || "",
+        email: customer_details?.email || "",
+      },
+    });
+    await new_payment.save({ session });
+
+    // Delete the active payment session from Redis
+    const redisKey = `payment-${room_id}`;
+    await redisClient.del(redisKey);
+
+    // Delete stripe payment session
+    // await stripe.checkout.sessions.expire(paymentData.id);
+  }
+
+  static async handlePaymentFailure(paymentData, session) {
     // Implement logic to handle failed payment
     console.log("Payment Failed:", paymentData);
     // e.g., notify user, log failure, etc.
