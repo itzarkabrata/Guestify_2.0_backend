@@ -16,4 +16,10 @@ router.get("/statistics/:uid/pg", User.isLoggedIn, Statistics.getPgStats);
 // Get stats for Booking for a particular user
 router.get("/statistics/graph/bookings", User.isLoggedIn, Statistics.getBookingEnlist);
 
+// Get Payment transaction stats (Admin)
+router.get("/payment/transaction/stats", User.isLoggedIn, Statistics.getTransactionStats);
+
+// Get Payment transaction summary (Admin)
+router.get("/payment/transaction/summary", User.isLoggedIn, Statistics.getTransactionSummary);
+
 export const statistics_router = router;

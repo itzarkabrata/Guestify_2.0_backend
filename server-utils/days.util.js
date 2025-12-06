@@ -30,3 +30,15 @@ export function getWeekRange(year, week) {
 
   return `${weekStart.toLocaleDateString("en-US", opt)} – ${weekEnd.toLocaleDateString("en-US", opt)}`;
 }
+
+export function getISOWeek(date) {
+  const temp = new Date(date.valueOf());
+  const day = (date.getDay() + 6) % 7;
+  temp.setDate(temp.getDate() - day + 3);
+  const firstThursday = temp.valueOf();
+  temp.setMonth(0, 1);
+  if (temp.getDay() !== 4) {
+    temp.setMonth(0, 1 + ((4 - temp.getDay()) + 7) % 7);
+  }
+  return 1 + Math.ceil((firstThursday - temp) / 604800000);
+}
