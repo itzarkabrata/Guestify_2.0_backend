@@ -13,7 +13,7 @@ import {
 } from "../server-utils/ApiError.js";
 import { ApiResponse } from "../server-utils/ApiResponse.js";
 import { Booking_Model } from "../models/booking.js";
-import { getWeekRange } from "../server-utils/days.util.js";
+import { getISOWeek, getWeekRange } from "../server-utils/days.util.js";
 
 export class Statistics {
   static async getOverallStats(req, res) {
@@ -409,6 +409,226 @@ export class Statistics {
     }
   }
 
+  static async getTransactionStats(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new InternalServerError("Database not connected");
+      }
+      const { id, is_admin } = req.user;
+
+      if (!is_admin) {
+        throw new AuthorizationError(
+          "Users are not authorised to view transaction stats"
+        );
+      }
+
+      const { type = "week" } = req.query;
+
+      if (!["week", "month"].includes(type)) {
+        throw new TypeError("Query Parameter must be either week or month");
+      }
+
+      const isWeek = type === "week";
+
+      const pipeline = [
+        {
+          $match: { admin_id: new mongoose.Types.ObjectId(String(id)) },
+        },
+
+        {
+          $lookup: {
+            from: "payments",
+            localField: "_id",
+            foreignField: "booking_id",
+            as: "payments",
+          },
+        },
+
+        { $unwind: "$payments" },
+
+        {
+          $group: {
+            _id: isWeek
+              ? {
+                  year: { $year: "$payments.createdAt" },
+                  week: { $isoWeek: "$payments.createdAt" },
+                }
+              : {
+                  year: { $year: "$payments.createdAt" },
+                  month: { $month: "$payments.createdAt" },
+                },
+            totalAmount: { $sum: "$payments.amount" },
+            count: { $sum: 1 },
+          },
+        },
+
+        // Add Recharts-ready formatting here
+        {
+          $project: {
+            _id: 0,
+            name: isWeek
+              ? {
+                  $concat: [
+                    { $toString: "$_id.year" },
+                    "-W",
+                    { $toString: "$_id.week" },
+                  ],
+                }
+              : {
+                  $concat: [
+                    { $toString: "$_id.year" },
+                    "-M",
+                    { $toString: "$_id.month" },
+                  ],
+                },
+            totalAmount: 1,
+            count: 1,
+          },
+        },
+
+        // Sort latest first
+        {
+          $sort: isWeek
+            ? { name: -1 } // W-based sorting
+            : { name: -1 }, // M-based sorting
+        },
+      ];
+
+      const stats = await Booking_Model.aggregate(pipeline);
+      return ApiResponse.success(res, stats, "Data fetched successfully");
+    } catch (error) {
+      console.error(error.message);
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Data not fetched",
+          error.statusCode,
+          error.message
+        );
+      }
+      return ApiResponse.error(res, "Data not fetched", 500, error.message);
+    }
+  }
+
+  static async getTransactionSummary(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new InternalServerError("Database not connected");
+      }
+      const { id, is_admin } = req.user;
+
+      if (!is_admin) {
+        throw new AuthorizationError(
+          "Users are not authorised to view transaction summary"
+        );
+      }
+
+      const now = new Date();
+      const thisMonth = now.getMonth() + 1;
+      const thisYear = now.getFullYear();
+      const thisWeek = getISOWeek(now);
+
+      const summaryPipeline = [
+        {
+          $match: { admin_id: new mongoose.Types.ObjectId(String(id)) },
+        },
+        {
+          $lookup: {
+            from: "payments",
+            localField: "_id",
+            foreignField: "booking_id",
+            as: "payments",
+          },
+        },
+        { $unwind: "$payments" },
+        {
+          $facet: {
+            thisMonth: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: [{ $year: "$payments.createdAt" }, thisYear] },
+                      { $eq: [{ $month: "$payments.createdAt" }, thisMonth] },
+                    ],
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  amount: { $sum: "$payments.amount" },
+                  count: { $sum: 1 },
+                },
+              },
+            ],
+
+            thisWeek: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: [{ $year: "$payments.createdAt" }, thisYear] },
+                      { $eq: [{ $isoWeek: "$payments.createdAt" }, thisWeek] },
+                    ],
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  amount: { $sum: "$payments.amount" },
+                  count: { $sum: 1 },
+                },
+              },
+            ],
+
+            total: [
+              {
+                $group: {
+                  _id: null,
+                  amount: { $sum: "$payments.amount" },
+                  count: { $sum: 1 },
+                },
+              },
+            ],
+          },
+        },
+      ];
+
+      const summaryResult = await Booking_Model.aggregate(summaryPipeline);
+
+      // Extract values safely
+      const summary = {
+        thisMonthAmount: summaryResult[0].thisMonth[0]?.amount || 0,
+        thisMonthCount: summaryResult[0].thisMonth[0]?.count || 0,
+
+        thisWeekAmount: summaryResult[0].thisWeek[0]?.amount || 0,
+        thisWeekCount: summaryResult[0].thisWeek[0]?.count || 0,
+
+        totalRevenue: summaryResult[0].total[0]?.amount || 0,
+        totalTransactions: summaryResult[0].total[0]?.count || 0,
+      };
+
+      return ApiResponse.success(
+        res,
+        summary,
+        "Data fetched successfully"
+      );
+    } catch (error) {
+      console.error(error.message);
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Data not fetched",
+          error.statusCode,
+          error.message
+        );
+      }
+      return ApiResponse.error(res, "Data not fetched", 500, error.message);
+    }
+  }
+
   static async getPgStats(req, res) {
     try {
       if (!(await Database.isConnected())) {
@@ -515,8 +735,11 @@ export class Statistics {
 
       const result = {
         ...data[0],
-        percent_occupied: Math.round(((data[0].occupied_rooms / data[0].total_rooms) * 100) * 100) / 100
-      }
+        percent_occupied:
+          Math.round(
+            (data[0].occupied_rooms / data[0].total_rooms) * 100 * 100
+          ) / 100,
+      };
 
       return ApiResponse.success(res, result, "Pg Stats fetched successfully");
     } catch (error) {
