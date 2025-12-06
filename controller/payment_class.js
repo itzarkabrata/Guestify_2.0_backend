@@ -333,6 +333,15 @@ export class Payment {
           message,
         });
 
+        // Mark Payment At again blank
+        const update_booking = await Booking_Model.findByIdAndUpdate(booking_id, {
+          payment_at: null,
+        });
+
+        if(!update_booking){
+          throw new Error("Failed to update booking payment status");
+        }
+
         // Store payment info as stringified JSON in the redis so far as the payment only valid for payment dunning days
         await redisClient.set(
           `payment-${room_id}`,
@@ -660,7 +669,7 @@ export class Payment {
       room_id,
       {
         booked_by: user_id,
-        booking_status: "This Room is Booked",
+        booking_status: "booked",
       },
       { new: true, session: session }
     );
