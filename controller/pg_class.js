@@ -1087,6 +1087,7 @@ export class Pg {
 
       const {
         pg_name,
+        pg_description,
         district,
         house_no,
         state,
@@ -1197,6 +1198,7 @@ export class Pg {
       const newPg = new PgInfo_Model({
         user_id,
         pg_name,
+        pg_description,
         district,
         house_no,
         state,
@@ -1445,6 +1447,7 @@ export class Pg {
 
       const {
         pg_name,
+        pg_description,
         district,
         house_no,
         state,
@@ -1533,6 +1536,7 @@ export class Pg {
 
       const updateData = {
         pg_name,
+        pg_description,
         district,
         house_no,
         state,

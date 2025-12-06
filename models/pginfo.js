@@ -13,6 +13,10 @@ const pgInfoSchema = new Schema({
     minlength: [3, 'PG name must be at least 3 characters long'],
     trim: true,
   },
+  pg_description: {
+    type: String,
+    trim: true,
+  },
   district: {
     type: String,
     required: [true, 'District name is required'],
