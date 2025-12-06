@@ -378,15 +378,31 @@ export class Payment {
       }
       const { booking_id } = req?.params;
 
+      // Extract query params with defaults
+      const page = parseInt(req.query.page) || 1;
+      const show = parseInt(req.query.show) || 10;
+
       if (!booking_id) {
         throw new TypeError("Booking Id params is required");
       }
 
-      const payment_info = await Payment_Model.find({ booking_id: booking_id });
+      const pipeline = [
+        { $match: { booking_id: new mongoose.Types.ObjectId(String(booking_id)) } },
+        { $sort: { createdAt: -1 } },
+        { $skip: (page - 1) * show },
+        { $limit: show },
+      ]
+
+      const payment_info = await Payment_Model.aggregate(pipeline);
 
       return ApiResponse?.success(
         res,
-        payment_info,
+        {
+          page,
+          per_page: show,
+          total_pages: Math.ceil(payment_info?.length / show),
+          payments: payment_info,
+        },
         "Payment Logs fetched successfully",
         200
       );
@@ -419,10 +435,45 @@ export class Payment {
       }
       const { id, is_admin } = req?.user;
 
+      // Extract query params with defaults
+      const page = parseInt(req.query.page) || 1;
+      const show = parseInt(req.query.show) || 10;
+      const filter = req.query.filter?.trim().toLowerCase() || "all";
+      const search = req.query.search?.trim() || "";
+      const sort = req.query.sort?.trim().toLowerCase() || "-create";
+
       if (!is_admin) {
         throw new AuthorizationError(
           "Users are not authorize to view Admin Payment Logs"
         );
+      }
+      if (!["create", "-create", "amount", "-amount"]?.includes(sort)) {
+        throw new EvalError(
+          "Allowed sort values are 'create', '-create', 'amount', '-amount'"
+        );
+      }
+
+      let sortField = "createdAt";
+      let sortOrder = -1;
+      switch (sort) {
+        case "amount":
+          sortField = "amount";
+          sortOrder = 1;
+          break;
+        case "-amount":
+          sortField = "amount";
+          sortOrder = -1;
+          break;
+        case "create":
+          sortField = "createdAt";
+          sortOrder = 1;
+          break;
+        case "-create":
+          sortField = "createdAt";
+          sortOrder = -1;
+          break;
+        default:
+          break;
       }
 
       const pipeline = [
@@ -455,17 +506,66 @@ export class Payment {
           },
         },
 
-        // 5️⃣ (Optional) Sort latest first
-        {
-          $sort: { createdAt: -1 },
-        },
+        // Filter by search (Name, Email, or Payment Method)
+        ...(search
+          ? [
+              {
+                $match: {
+                  $or: [
+                    {
+                      "intent.name": {
+                        $regex: search,
+                        $options: "i",
+                      },
+                    },
+                    {
+                      "intent.email": {
+                        $regex: search,
+                        $options: "i",
+                      },
+                    },
+                    {
+                      payment_method: {
+                        $regex: search,
+                        $options: "i",
+                      },
+                    },
+                  ],
+                },
+              },
+            ]
+          : []),
+
+        // Filter by status
+        ...(filter !== "all" ? [{ $match: { status: filter } }] : []),
+
+        // Sort latest first or amount
+        { $sort: { [sortField]: sortOrder } },
       ];
 
+      // Add pagination using $facet
+      pipeline.push({
+        $facet: {
+          data: [{ $skip: (page - 1) * show }, { $limit: show }],
+          totalCount: [{ $count: "count" }],
+        },
+      });
+
       const payment_info = await Booking_Model.aggregate(pipeline);
+      const payments = payment_info[0]?.data || [];
+      const totalCount = payment_info[0]?.totalCount[0]?.count || 0;
 
       return ApiResponse?.success(
         res,
-        payment_info,
+        {
+          total: totalCount,
+          page,
+          per_page: show,
+          total_pages: Math.ceil(totalCount / show),
+          filter,
+          search,
+          payments: payments,
+        },
         "Payment Logs fetched successfully",
         200
       );
@@ -504,7 +604,7 @@ export class Payment {
 
       const payment_info = await Payment_Model.findByIdAndDelete(log_id);
 
-      if(!payment_info){
+      if (!payment_info) {
         throw new NotFoundError("Payment Log not found");
       }
 
