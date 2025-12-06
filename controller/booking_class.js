@@ -461,7 +461,25 @@ export class Booking {
         const ttlResults = await pipeline.exec(); // [[null, ttl1], [null, ttl2], ...]
         bookings.forEach((b, i) => {
           const ttl = ttlResults[i][1];
-          b.payment_ttl = b?.status === "accepted" ? ttl > 0 ? ttl : 0 : null; // 0 if no expiry or not found
+          // If status is NOT accepted → null
+          if (b.status !== "accepted") {
+            b.payment_ttl = null;
+            return;
+          }
+          // If TTL not found (-2) or missing → null
+          else if (ttl === -2 || ttl === null || ttl === undefined) {
+            b.payment_ttl = null;
+            return;
+          }
+          // If TTL exists but is -1 (no expiry) → treat as 0
+          else if (ttl === -1) {
+            b.payment_ttl = 0;
+            return;
+          }
+          else {
+            // TTL is valid (0 or > 0)
+            b.payment_ttl = ttl;
+          }
         });
       }
 
@@ -780,7 +798,7 @@ export class Booking {
         room_id,
         {
           booked_by: acc_id,
-          booking_status: "Room Booked: Payment Pending",
+          booking_status: "pending",
         },
         { session }
       );
