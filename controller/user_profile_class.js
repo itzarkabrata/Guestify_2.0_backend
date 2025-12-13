@@ -141,11 +141,12 @@ export class UserProfile {
             last_name: updated_user[0].last_name,
             email: updated_user[0].email,
             image_url: updated_user[0].image_url,
+            is_admin: updated_user[0].is_admin,
           };
           // Token creation
           const token = await jwt.sign(token_obj, process.env.JWT_SECRET_KEY, {
             expiresIn: "2h",
-            notBefore: "2s",
+            notBefore: "1s",
           });
 
           //creating event
