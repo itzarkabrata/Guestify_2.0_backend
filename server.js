@@ -20,6 +20,14 @@ import { email_otp_router } from "./routes/email_otp_route.js";
 import { owner_router } from "./routes/owner_route.js";
 import compression from "compression";
 import { image_upload_router } from "./routes/image_upload_route.js";
+import { booking_router } from "./routes/booking_route.js";
+import { wishlist_router } from "./routes/wishlist_route.js";
+import { payment_router } from "./routes/payment_route.js";
+import { webhook_router } from "./routes/webhook_route.js";
+import { statistics_router } from "./routes/stat_route.js";
+
+// Import CRON JOB Workers
+import { CronManager } from "./cron-job-worker/index.js";
 
 // Resolve __dirname in ES modules
 export const __filename = fileURLToPath(import.meta.url);
@@ -45,6 +53,10 @@ app.use(
 );
 app.use("/user-assets", express.static(path.join(__dirname, "user-assets")));
 app.use(express.urlencoded({ extended: true }));
+
+// Stripe Middleware as stripe accepts only raw
+app.use("/backend/stripe/webhook", express.raw({ type: "application/json" }), webhook_router);
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(compression());
@@ -76,6 +88,16 @@ app.use("/backend", owner_router);
 
 app.use("/backend", image_upload_router);
 
+app.use("/backend", booking_router);
+
+app.use("/backend", wishlist_router);
+
+app.use("/backend", payment_router);
+
+// app.use("/backend", webhook_router);
+
+app.use("/backend", statistics_router);
+
 
 //response for Undeclared api endpoint
 app.use(Endpoint_notfound);
@@ -98,6 +120,16 @@ server.listen(port_number, async () => {
 
     // continuously consuming messages from delete queue
     await AMQP.consumeMsg_DLQ("delete-noti-queue");
+
+    // continuously consuming messages from primary wishlist queue
+    await AMQP.consumeWishlistItem("wishlist-queue");
+
+    // continuously consuming messages from delete wishlist queue
+    await AMQP.consumeWishlistItem_DLQ("delete-wishlist-queue");
+
+    // start Cron
+    await CronManager.startAll();
+    
   } catch (err) {
     console.log(err.message);
   }

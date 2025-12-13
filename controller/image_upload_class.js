@@ -19,9 +19,7 @@ export class ImageUpload {
 
             console.log("Uploaded files:", req.files);
 
-            const imageFiles = req.files.filter((f) =>
-                f.fieldname.includes("pg_image_url") || f.fieldname.includes("room_image_url")
-            );
+            const imageFiles = req.files.filter((f) => f.fieldname.includes("image_url"));
 
             if (imageFiles.length === 0) {
                 throw new Error("No valid PG/ROOM image files found");
@@ -74,11 +72,11 @@ export class ImageUpload {
             //     throw new Error("Database server is not connected properly");
             // }
 
-            console.log("Request body for deletion:", req.body);
+            // console.log("Request body for deletion:", req.body);
 
             const { public_id } = req.body;
 
-            console.log("Public ID to delete:", !public_id);
+            // console.log("Public ID to delete:", !public_id);
 
             if (!public_id) {
                 console.log("Public ID is missing in the request body");
@@ -108,6 +106,34 @@ export class ImageUpload {
 
             res.status(statusCode).json({
                 message: "Image deletion failed",
+                error: error.message,
+            });
+        }
+    }
+
+    static async deleteBulkImages(req , res) {
+        try {
+
+            const { public_ids } = req.body;
+            if (!public_ids || !Array.isArray(public_ids) || public_ids.length === 0) {
+                throw new Error("public_ids array is required");
+            }
+            const cloudinaryResult = await cloudinary.api.delete_resources(public_ids);
+
+            return res.status(200).json({
+                message: "Bulk images deleted successfully",
+                result: cloudinaryResult,
+            });
+        } catch (error) {
+            console.error(error.message);
+            const statusCode =
+                error instanceof TypeError ||
+                    error instanceof EvalError ||
+                    error instanceof ReferenceError
+                    ? 400
+                    : 500;
+            res.status(statusCode).json({
+                message: "Bulk image deletion failed",
                 error: error.message,
             });
         }

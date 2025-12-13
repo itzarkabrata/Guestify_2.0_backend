@@ -18,6 +18,7 @@ const router = Router();
 const upload = multer({ storage: storage });
 
 router.get("/getAllPg",Pg.getAllPg);
+router.get("/getAllPgByDistrict", Pg.getAllPgByDistrict);
 router.get("/getPgForMap", Pg.getPg_forMap);
 router.get("/getPgNearMe", Pg.getPgNearMe);
 router.get("/getPgNearPg/:id",Pg.getPgNearPg);
@@ -27,6 +28,7 @@ router.get("/getPg/:id",Pg.getPg);
 router.get("/getPg/user/:userid",User.isLoggedIn,Pg.getPG_ByUser);
 router.get("/getPg/:id/basic-details",User.isLoggedIn,Pg.getPg_BasicDetails);
 router.get("/getPg/:id/room-details",User.isLoggedIn,Pg.getPg_RoomDetails);
+router.get("/user/:user_id/pg/catelogue",User.isLoggedIn, Pg.getPGCatelogue);
 
 // === INSERTING ===
 router.post("/addpg",User.isLoggedIn, upload.any(), Pg.addPg);

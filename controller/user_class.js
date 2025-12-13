@@ -6,6 +6,15 @@ import mongoose from "mongoose";
 import { EventObj } from "../lib/event.config.js";
 import { AMQP } from "../lib/amqp.connect.js";
 import { Nodemailer } from "../lib/email/email.config.js";
+import {
+  ApiError,
+  AuthorizationError,
+  EvalError,
+  InternalServerError,
+  NotFoundError,
+  TypeError,
+} from "../server-utils/ApiError.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
 
 export class User {
   static async getAllUsers(_req, res) {
@@ -13,26 +22,46 @@ export class User {
       if (await Database.isConnected()) {
         const users_list = await User_Model.find();
 
-        res.status(200).json({
-          message: "Users fetched successfully",
-          data: users_list,
-        });
+        return ApiResponse.success(
+          res,
+          users_list,
+          "Users fetched successfully"
+        );
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.error(error.message);
-      res.status(500).json({
-        message: "Users are not fetched successfully",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Users are not fetched successfully",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Users are not fetched successfully",
+          500,
+          error.message
+        );
+      }
     }
   }
 
   static async RegisterUser(req, res) {
     try {
       if (await Database.isConnected()) {
-        const { first_name, last_name, email, password } = req.body;
+        const {
+          first_name,
+          last_name,
+          email,
+          password,
+          is_admin = false,
+        } = req.body;
 
         //Check datatype validity
         if (!(typeof first_name === "string")) {
@@ -47,13 +76,16 @@ export class User {
         if (!(typeof password === "string")) {
           throw new TypeError("Password must be of type string");
         }
+        if (!(typeof is_admin === "boolean")) {
+          throw new TypeError("is_admin must be of type boolean");
+        }
 
         // Check whether the password satisfies the regex
         const passwordRegex =
           /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$/;
 
         if (!passwordRegex.test(password)) {
-          throw new EvalError(
+          throw new TypeError(
             "Password must be 8-20 characters with 1 uppercase, 1 number, and 1 special character."
           );
         }
@@ -64,7 +96,7 @@ export class User {
         });
 
         if (user_res.length !== 0) {
-          throw new ReferenceError(
+          throw new EvalError(
             "Email already exists. Please try another email or Login with your existing email"
           );
         }
@@ -83,13 +115,14 @@ export class User {
           district: null,
           pincode: null,
           image_url: null,
+          is_admin: is_admin,
         });
 
         //creating event
         const msg = JSON.stringify(
           EventObj.createEventObj(
             "transactional",
-            "User Registration done in the account",
+            "Registration done in the account",
             false,
             "success",
             added_user._id,
@@ -103,11 +136,16 @@ export class User {
             email,
             "Welcome to Guestify - Your Journey Begins Here!",
             "welcome",
-            { userName: first_name + " " + last_name, login_url: process.env.FRONTEND_URL || "https://guestify-2-0.vercel.app" + "/login" },
+            {
+              userName: first_name + " " + last_name,
+              login_url:
+                process.env.FRONTEND_URL ||
+                "https://guestify-2-0.vercel.app" + "/login",
+            },
             "Welcome Email Sent successfully",
             "Welcome Email not sent"
           )
-        )
+        );
 
         //publishing to amqp server
         AMQP.publishMsg("noti-queue", msg);
@@ -115,30 +153,35 @@ export class User {
         //publishing to email queue
         AMQP.publishEmail("email-queue", email_msg);
 
-        res.status(200).json({
-          message:
-            "User registered successfully , Please Login with the email-id and password",
-        });
+        return ApiResponse.success(
+          res,
+          null,
+          `${
+            is_admin ? "Admin" : "User"
+          } registered successfully , Please Login with the email-id and password`
+        );
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.error(error.message);
 
-      if (
-        error instanceof TypeError ||
-        error instanceof EvalError ||
-        error instanceof ReferenceError
-      ) {
-        res.status(400).json({
-          message: "User is not enlisted successfully",
-          error: error.message,
-        });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Users Registration not done successfully",
+          error.statusCode,
+          error.message
+        );
       } else {
-        res.status(500).json({
-          message: "User is not enlisted successfully",
-          error: error.message,
-        });
+        return ApiResponse.error(
+          res,
+          "Users Registration not done successfully",
+          500,
+          error.message
+        );
       }
     }
   }
@@ -175,6 +218,7 @@ export class User {
             email: 1,
             password: 1,
             image_url: 1,
+            is_admin: 1,
           }
         );
 
@@ -188,6 +232,7 @@ export class User {
               last_name: res_user[0].last_name,
               email: res_user[0].email,
               image_url: res_user[0].image_url,
+              is_admin: res_user[0].is_admin,
             };
             // Token creation
             const token = await jwt.sign(
@@ -216,7 +261,7 @@ export class User {
             const msg = JSON.stringify(
               EventObj.createEventObj(
                 "transactional",
-                "User Logged in to the account",
+                "Logged in to the account",
                 false,
                 "success",
                 res_user[0]._id,
@@ -227,12 +272,17 @@ export class User {
             //publishing to amqp server
             AMQP.publishMsg("noti-queue", msg);
 
-            res.status(200).json({
-              message: "User Logged in successfully",
-              data: {
+            return ApiResponse.success(
+              res,
+              {
                 token: token,
+                user_id: res_user[0]._id,
+                is_admin: res_user[0].is_admin,
               },
-            });
+              `${
+                res_user[0].is_admin ? "Admin" : "User"
+              } Logged in successfully`
+            );
           } else {
             throw new EvalError("Invalid Password : Password not matched");
           }
@@ -240,21 +290,21 @@ export class User {
           throw new EvalError("Invalid email : User not available");
         }
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.error(error.message);
-
-      if (error instanceof EvalError || error instanceof TypeError) {
-        res.status(400).json({
-          message: "Visitor is not logged in successfully",
-          error: error.message,
-        });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "User Login Failed",
+          error.statusCode,
+          error.message
+        );
       } else {
-        res.status(500).json({
-          message: "Visitor is not logged in successfully",
-          error: error.message,
-        });
+        return ApiResponse.error(res, "User login failed", 500, error.message);
       }
     }
   }
@@ -263,12 +313,14 @@ export class User {
     try {
       const auth_token = req.headers["authorization"];
       if (!auth_token) {
-        throw new Error(
+        throw new AuthorizationError(
           "User Authorization failed : Authorization header not available"
         );
       }
       if (!auth_token.split(" ")[1]) {
-        throw new Error("User Authorization failed : Token not available");
+        throw new AuthorizationError(
+          "User Authorization failed : Token not available"
+        );
       }
 
       const decoded_token = await jwt.verify(
@@ -279,7 +331,7 @@ export class User {
       const { user_id } = decoded_token;
 
       if (!mongoose.Types.ObjectId.isValid(user_id)) {
-        throw new TypeError(
+        throw new AuthorizationError(
           "User Authorization failed : Invalid User ID format in token"
         );
       }
@@ -304,16 +356,20 @@ export class User {
       //publishing to amqp server
       AMQP.publishMsg("noti-queue", msg);
 
-      res.status(200).json({
-        message: "User logged out successfully",
-      });
+      return ApiResponse.success(res, null, "User logged out successfully");
     } catch (error) {
       console.error("Logout Error:", error.message);
 
-      res.status(500).json({
-        message: "An error occurred during logout",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "User Logout Failed",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(res, "User Logout Failed", 500, error.message);
+      }
     }
   }
 
@@ -341,6 +397,7 @@ export class User {
             email: 1,
             password: 1,
             image_url: 1,
+            is_admin: 1,
           }
         );
 
@@ -350,6 +407,7 @@ export class User {
             last_name: res_user[0].last_name,
             email: res_user[0].email,
             image_url: res_user[0].image_url,
+            is_admin: res_user[0].is_admin,
           };
           // Token creation
           const forget_token = await jwt.sign(
@@ -366,7 +424,10 @@ export class User {
               token_obj.email,
               "Reset Password Email",
               "forgot-password",
-              { userName: `${token_obj.first_name} ${token_obj.last_name}`, token: forget_token }
+              {
+                userName: `${token_obj.first_name} ${token_obj.last_name}`,
+                token: forget_token,
+              }
             );
             if (info.success) {
               //creating event
@@ -384,35 +445,43 @@ export class User {
               //publishing to amqp server
               AMQP.publishMsg("noti-queue", msg);
 
-              res.status(200).json({
-                message: info.message,
-                data: {
+              return ApiResponse.success(
+                res,
+                {
                   token: forget_token,
                 },
-              });
+                info.message,
+                200
+              );
             } else {
-              throw new Error(info.message);
+              throw new EvalError(info.message);
             }
           }
         } else {
-          throw new ReferenceError("User with given email-id not exists");
+          throw new NotFoundError("User with given email-id not exists");
         }
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.error(error.message);
 
-      if (error instanceof ReferenceError || error instanceof TypeError) {
-        res.status(400).json({
-          message: "Password not changed successfully",
-          error: error.message,
-        });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Forget Token not delivered successfully",
+          error.statusCode,
+          error.message
+        );
       } else {
-        res.status(500).json({
-          message: "Email do not send successfully",
-          error: error.message,
-        });
+        return ApiResponse.error(
+          res,
+          "Forget Token not delivered successfully",
+          500,
+          error.message
+        );
       }
     }
   }
@@ -481,6 +550,7 @@ export class User {
             email: 1,
             password: 1,
             image_url: 1,
+            is_admin: 1,
           }
         );
 
@@ -501,6 +571,7 @@ export class User {
               last_name: res_user[0].last_name,
               email: res_user[0].email,
               image_url: res_user[0].image_url,
+              is_admin: res_user[0].is_admin,
             };
             // Token creation
             const updated_token = await jwt.sign(
@@ -527,43 +598,41 @@ export class User {
             //publishing to amqp server
             AMQP.publishMsg("noti-queue", msg);
 
-            res.status(200).json({
-              message: "Password changed successfully",
-              data: {
+            return ApiResponse.success(
+              res,
+              {
                 token: updated_token,
               },
-            });
-          } else {
-            throw new ReferenceError(
-              "Something Went wrong while changing password"
+              "Password changed successfully"
             );
+          } else {
+            throw new EvalError("Something Went wrong while changing password");
           }
         } else {
-          throw new ReferenceError("User not exists : check the token again");
+          throw new NotFoundError("User not exists : check the token again");
         }
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.error(error.message);
 
-      if (
-        error instanceof ReferenceError ||
-        error instanceof TypeError ||
-        error instanceof EvalError ||
-        error instanceof jwt.JsonWebTokenError ||
-        error instanceof jwt.TokenExpiredError ||
-        error instanceof jwt.NotBeforeError
-      ) {
-        res.status(400).json({
-          message: "Password not changed successfully",
-          error: error.message,
-        });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Password not changed successfully",
+          error.statusCode,
+          error.message
+        );
       } else {
-        res.status(500).json({
-          message: "Email do not send successfully",
-          error: error.message,
-        });
+        return ApiResponse.error(
+          res,
+          "Password not changed successfully",
+          500,
+          error.message
+        );
       }
     }
   }
@@ -572,12 +641,12 @@ export class User {
     try {
       const auth_token = req.headers["authorization"];
       if (!auth_token) {
-        throw new Error(
+        throw new AuthorizationError(
           "User Authorization failed : Authorization header not available"
         );
       }
       if (!auth_token.split(" ")[1]) {
-        throw new Error("User Authorization failed : Token not available");
+        throw new AuthorizationError("User Authorization failed : Token not available");
       }
 
       const decoded_token = await jwt.verify(
@@ -590,7 +659,7 @@ export class User {
       // console.log(user_id,"TOken from islogged in function");
 
       if (!mongoose.Types.ObjectId.isValid(user_id)) {
-        throw new TypeError(
+        throw new AuthorizationError(
           "User Authorization failed : Invalid User ID format in token"
         );
       }
@@ -604,21 +673,37 @@ export class User {
         req.body.userid = res_user[0]._id;
 
         // only for formdata objects i am again initializes this becouse multer clears req.body data
-        req.user = { id: res_user[0]._id };
+        req.user = {
+          id: res_user[0]._id,
+          is_admin: res_user[0].is_admin,
+          email: res_user[0].email,
+          name: res_user[0].first_name + " " + res_user[0].last_name,
+          image_url: res_user[0].image_url,
+        };
 
         next();
       } else {
-        throw new ReferenceError(
+        throw new NotFoundError(
           "User Authorization failed : user with specified email-id not exists"
         );
       }
     } catch (error) {
       console.log(error.message);
-      res.status(400).json({
-        message: "Api call failed : Authorization error",
-        error: error.message,
-        stack: error.stack,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "User Authorization failed",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "User Authorization failed",
+          500,
+          error.message
+        );
+      }
     }
   }
 }
