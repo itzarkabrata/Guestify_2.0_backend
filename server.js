@@ -25,10 +25,11 @@ import { wishlist_router } from "./routes/wishlist_route.js";
 import { payment_router } from "./routes/payment_route.js";
 import { webhook_router } from "./routes/webhook_route.js";
 import { statistics_router } from "./routes/stat_route.js";
+import { place_suggestion_router } from "./routes/location_route.js";
+import { attraction_router } from "./routes/local_attraction_route.js";
 
 // Import CRON JOB Workers
 import { CronManager } from "./cron-job-worker/index.js";
-import { place_suggestion_router } from "./routes/location_route.js";
 
 // Resolve __dirname in ES modules
 export const __filename = fileURLToPath(import.meta.url);
@@ -100,6 +101,8 @@ app.use("/backend", payment_router);
 app.use("/backend", statistics_router);
 
 app.use("/backend", place_suggestion_router);
+
+app.use("/backend", attraction_router);
 
 
 //response for Undeclared api endpoint
