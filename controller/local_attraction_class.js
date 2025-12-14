@@ -91,6 +91,16 @@ export class LocalAttraction {
         type,
       } = req.body;
 
+      // Calculate and check if no_of_attractions limit per admin > configured limit
+      const existingAttractionsCount = await Attraction_Model.countDocuments({
+        createdBy: id, type: type
+      });
+      const maxAttractionsPerAdmin = parseInt(process.env.LOCAL_ATTRACTION_PER_ADMIN_LIMIT) || 3;
+
+      if(existingAttractionsCount >= maxAttractionsPerAdmin) {
+        throw new EvalError(`You have reached the maximum limit of ${maxAttractionsPerAdmin} attractions for type ${type}`);
+      }
+
       // Validating Each Field
       if (!place_name || typeof place_name !== "string") {
         throw new TypeError("Place name is required and must be a string");
@@ -200,12 +210,19 @@ export class LocalAttraction {
       }
 
       let updateOperation = {};
+      const existing_attractions = await PgInfo_Model.findById(pg_id, { attractions: 1,});
 
       switch (action) {
         case "add":
+          if(existing_attractions?.attractions?.includes(attraction_id)) {
+            throw new EvalError("Attraction already added to the PG");
+          }
           updateOperation = { $addToSet: { attractions: attraction_id } };
           break;
         case "remove":
+          if(!existing_attractions?.attractions?.includes(attraction_id)) {
+            throw new EvalError("Attraction not found in the PG");
+          }
           updateOperation = { $pull: { attractions: attraction_id } };
           break;
         default:
@@ -225,7 +242,10 @@ export class LocalAttraction {
       // Responding with success
       return ApiResponse.success(
         res,
-        updatedPg,
+        {
+            pg_name: updatedPg.pg_name,
+            attractions: updatedPg.attractions,
+        },
         `Local Attractions ${action} successfully`,
         200
       );
