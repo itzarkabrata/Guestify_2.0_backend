@@ -28,6 +28,7 @@ import { statistics_router } from "./routes/stat_route.js";
 
 // Import CRON JOB Workers
 import { CronManager } from "./cron-job-worker/index.js";
+import { place_suggestion_router } from "./routes/location_route.js";
 
 // Resolve __dirname in ES modules
 export const __filename = fileURLToPath(import.meta.url);
@@ -97,6 +98,8 @@ app.use("/backend", payment_router);
 // app.use("/backend", webhook_router);
 
 app.use("/backend", statistics_router);
+
+app.use("/backend", place_suggestion_router);
 
 
 //response for Undeclared api endpoint
