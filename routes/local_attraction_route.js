@@ -11,10 +11,10 @@ router.get("/pg/:pg_id/attractions", User.isLoggedIn, LocalAttraction.getLocalAt
 router.get("/admin/attractions", User.isLoggedIn, LocalAttraction.getAdminAttractions);
 
 // Add or Remove Attractions to/from a PG
-router.put("/pg/:pg_id/attraction/toggle", User.isLoggedIn, LocalAttraction.toggleAttractionForPg);
+router.patch("/pg/:pg_id/attraction/toggle", User.isLoggedIn, LocalAttraction.toggleAttractionForPg);
 
 // Enlist New Local Attraction
-router.post("/pg/attraction", User.isLoggedIn, LocalAttraction.enlistNewLocalAttraction);
+router.post("/attraction/new", User.isLoggedIn, LocalAttraction.enlistNewLocalAttraction);
 
 // Delete Local Attraction
 router.delete("/pg/attraction/:attraction_id", User.isLoggedIn, LocalAttraction.deleteLocalAttraction);
