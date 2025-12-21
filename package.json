@@ -11,6 +11,7 @@
   "author": "Arkabrata Chandra",
   "license": "ISC",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@sendgrid/mail": "^8.1.6",
     "amqplib": "^0.10.7",
     "bcrypt": "^5.1.1",
