@@ -1,74 +1,86 @@
 export class Prompt {
-  static buildPrompt(data) {
-    const prompt = `
-You are generating a PRIVATE ROOM RENTAL AGREEMENT (India).
+  static buildPrompt(d, instruction) {
+    return `
+You are a professional legal contract drafter.
 
-STRICT RULES:
-- This is a draft agreement
-- Use simple legal English
-- No legal advice
-- No invented laws
-- Output valid JSON only
-- No markdown
+TASK:
+Generate a **Residential PG / Room Rental Agreement** suitable for execution in India.
 
-CORE AGREEMENT DATA:
-Landlord: ${data.landlord_name}
-Tenant: ${data.tenant_name}
-Property: ${data.property_name}
-Address: ${data.address}
-Room Type: ${data.room_type}
-Rent: INR ${data.rent_amount}
-Deposit: INR ${data.deposit_amount}
-Lease: ${data.lease_start} to ${data.lease_end}
-Notice Period: ${data.notice_period_days} days
+FORMATTING RULES:
+- Use Markdown
+- Bold all names, dates, cities, states, and amounts
+- Use ## for section headings
+- Use ### for clauses
+- No placeholders
+- No explanations
 
-OPTIONAL USER INSTRUCTIONS:
-${data.custom_instructions || "None"}
+INPUT DATA:
+Owner Name: ${d.owner_name}
+Owner Guardian Name: ${d.owner_guardian_name}
+Owner Address: ${d.owner_address}
 
-JSON FORMAT:
-{
-  "title": "",
-  "clauses": {
-    "parties": "",
-    "property_details": "",
-    "term": "",
-    "rent_and_payment": "",
-    "security_deposit": "",
-    "use_of_property": "",
-    "maintenance": "",
-    "termination": "",
-    "special_clauses": "",
-    "general_conditions": ""
-  },
-  "disclaimer": ""
-}
+Tenant Name: ${d.tenant_name}
+Tenant Guardian Name: ${d.tenant_guardian_name}
+Tenant Address: ${d.tenant_address}
+
+PG Name: ${d.pg_name}
+PG Address: ${d.pg_full_address}
+
+Room Details: ${d.room_details}
+Common Areas: ${d.common_areas}
+
+Agreement City: ${d.agreement_city}
+Agreement State: ${d.agreement_state}
+Agreement Date: ${d.agreement_date}
+
+Start Date: ${d.start_date}
+End Date: ${d.end_date}
+Duration: ${d.duration}
+
+Lock-in Period: ${d.lock_in_period}
+Notice Period: ${d.notice_period}
+
+Monthly Rent: ${d.rent} (${d.rent_words})
+Rent Due Date: ${d.rent_due_day}
+
+Security Deposit: ${d.deposit} (${d.deposit_words})
+Deposit Refund Period: ${d.deposit_refund_days}
+
+Late Fee: ${d.late_fee}
+
+Utilities Included: ${d.utilities_included}
+Utilities Excluded: ${d.utilities_excluded}
+
+Visitor Hours: ${d.visitor_hours}
+
+Custom Instructions: ${instruction || "None"}
+
+FINAL INSTRUCTION:
+Generate a clean, professional, legally formatted agreement in Markdown.
 `;
-
-    return prompt;
   }
 
-  static updatePrompt(sessionData, instruction) {
-    const updatePrompt = `
-You are updating an EXISTING PRIVATE ROOM RENTAL AGREEMENT (India).
+  /* =========================
+     UPDATE EXISTING AGREEMENT
+  ========================= */
+  static updatePrompt(existingAgreement, instruction) {
+    return `
+You are a professional legal contract drafter.
+
+TASK:
+Update the EXISTING Residential PG / Room Rental Agreement (India).
 
 RULES:
-- Output valid JSON only
-- Keep structure
-- Modify ONLY what instruction requires
-- No markdown
+- Preserve structure
+- Modify ONLY what the instruction requires
+- Do NOT explain changes
+- Output FULL updated agreement in Markdown
 
-CORE DATA:
-${JSON.stringify(sessionData.coreData)}
-
-EXISTING AGREEMENT JSON:
-${JSON.stringify(sessionData.agreementJSON)}
+EXISTING AGREEMENT:
+${existingAgreement}
 
 USER INSTRUCTION:
 ${instruction}
-
-Return FULL updated agreement JSON.
 `;
-
-    return updatePrompt;
   }
 }

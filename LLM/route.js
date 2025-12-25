@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { User } from "../controller/user_class.js";
-import { LLMModel } from "./controller.js";
+import { LLMController } from "./controller.js";
 
 const router = Router();
 
-router.get("/aggrement/generate", User.isLoggedIn, LLMModel.generateResponse);
+router.post("/aggrement/generate", LLMController.generate);
 
 export const llm_route = router;
