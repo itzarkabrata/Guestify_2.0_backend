@@ -7,8 +7,44 @@ import { AMQP } from "../lib/amqp.connect.js";
 import { User_Model } from "../models/users.js";
 import { RoomInfo_Model } from "../models/roominfo.js";
 import { redisClient } from "../lib/redis.config.js";
+import { InternalServerError, NotFoundError } from "../server-utils/ApiError.js";
 
 export class Booking {
+
+  static async getBookingState(booking_id){
+    try {
+      if (!(await Database.isConnected())) {
+        throw new InternalServerError("Database server is not connected properly");
+      }
+      if(!booking_id){
+        throw new NotFoundError("Booking ID is required");
+      }
+      const booking_info = await Booking_Model.findById(booking_id);
+
+      if(!booking_info){
+        throw new NotFoundError("No booking found for this id");
+      }
+
+      if(booking_info?.revolked_by !== null){
+        return "revolked";
+      }
+      else if(booking_info?.accepted_by !== null){
+        return "accepted";
+      }
+      else if(booking_info?.declined_by !== null){
+        return "declined";
+      }
+      else if(booking_info?.canceled_by !== null){
+        return "cancelled";
+      }
+      else{
+        return "pending";
+      }
+    } catch (error) {
+      console.error("Error: ", error.message);
+    }
+  }
+
   static async getAllRoomBookings(req, res) {
     try {
       if (!(await Database.isConnected())) {
@@ -137,6 +173,7 @@ export class Booking {
           $project: {
             _id: 0,
             booking_id: "$_id",
+            payment_at: "$payment_at",
             booking_date: "$createdAt",
             status: 1,
             status_timestamp: 1,
@@ -424,7 +461,25 @@ export class Booking {
         const ttlResults = await pipeline.exec(); // [[null, ttl1], [null, ttl2], ...]
         bookings.forEach((b, i) => {
           const ttl = ttlResults[i][1];
-          b.payment_ttl = b?.status === "accepted" ? ttl > 0 ? ttl : 0 : null; // 0 if no expiry or not found
+          // If status is NOT accepted → null
+          if (b.status !== "accepted") {
+            b.payment_ttl = null;
+            return;
+          }
+          // If TTL not found (-2) or missing → null
+          else if (ttl === -2 || ttl === null || ttl === undefined) {
+            b.payment_ttl = null;
+            return;
+          }
+          // If TTL exists but is -1 (no expiry) → treat as 0
+          else if (ttl === -1) {
+            b.payment_ttl = 0;
+            return;
+          }
+          else {
+            // TTL is valid (0 or > 0)
+            b.payment_ttl = ttl;
+          }
         });
       }
 
@@ -743,7 +798,7 @@ export class Booking {
         room_id,
         {
           booked_by: acc_id,
-          booking_status: "Room Booked: Payment Pending",
+          booking_status: "pending",
         },
         { session }
       );

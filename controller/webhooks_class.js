@@ -1,15 +1,18 @@
 import Stripe from "stripe";
 import { ApiResponse } from "../server-utils/ApiResponse.js";
 import { Database } from "../lib/connect.js";
-import { InternalServerError } from "../server-utils/ApiError.js";
+import { ApiError, InternalServerError } from "../server-utils/ApiError.js";
 import { Payment } from "./payment_class.js";
+import mongoose from "mongoose";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-10-29.clover",
+  apiVersion: "2023-10-16",
 });
 
 export class Webhooks {
   static async handleStripeWebhook(req, res) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
       if (!Database.isConnected()) {
         throw new InternalServerError(
@@ -34,22 +37,37 @@ export class Webhooks {
       try {
         switch (event.type) {
           case "checkout.session.completed":
-            await Payment.handlePaymentSuccess(event.data.object);
+            await Payment.handlePaymentSuccess(event.data.object, session);
             break;
 
           case "checkout.session.expired":
+            break;
           case "payment_intent.payment_failed":
-            await Payment.handlePaymentFailure(event.data.object);
+            await Payment.handlePaymentFailure(event.data.object, session);
+            break;
+          default:
             break;
         }
 
-        res.status(200).send("OK");
+        await session.commitTransaction();
+        session.endSession();
+
+        return ApiResponse.success(
+          res,
+          { received: true, event: event.type || "" },
+          "Webhook runs successfully",
+          200
+        );
       } catch (err) {
         console.error(err);
-        res.status(500).send("Webhook error");
+        await session.abortTransaction();
+        session.endSession();
+        return ApiResponse.error(res, "Webhook Failed", 500, err.message);
       }
     } catch (error) {
       console.error("Error in Stripe webhook handler:", error);
+      await session.abortTransaction();
+      session.endSession();
       if (error instanceof ApiError) {
         return ApiResponse.error(
           res,

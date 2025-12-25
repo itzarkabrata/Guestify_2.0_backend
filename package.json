@@ -11,6 +11,7 @@
   "author": "Arkabrata Chandra",
   "license": "ISC",
   "dependencies": {
+    "@google/genai": "^1.34.0",
     "@sendgrid/mail": "^8.1.6",
     "amqplib": "^0.10.7",
     "bcrypt": "^5.1.1",
@@ -25,6 +26,7 @@
     "mongoose": "^8.10.2",
     "multer": "^1.4.5-lts.1",
     "multer-storage-cloudinary": "^4.0.0",
+    "node-cron": "^4.2.1",
     "nodemailer": "^7.0.3",
     "pdfkit": "^0.17.2",
     "qs": "^6.14.0",

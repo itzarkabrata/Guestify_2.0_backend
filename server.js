@@ -25,6 +25,13 @@ import { wishlist_router } from "./routes/wishlist_route.js";
 import { payment_router } from "./routes/payment_route.js";
 import { webhook_router } from "./routes/webhook_route.js";
 import { chat_assistant_router } from "./routes/chat_assistant_route.js";
+import { statistics_router } from "./routes/stat_route.js";
+import { place_suggestion_router } from "./routes/location_route.js";
+import { attraction_router } from "./routes/local_attraction_route.js";
+
+// Import CRON JOB Workers
+import { CronManager } from "./cron-job-worker/index.js";
+import { llm_route } from "./LLM/route.js";
 
 // Resolve __dirname in ES modules
 export const __filename = fileURLToPath(import.meta.url);
@@ -50,6 +57,10 @@ app.use(
 );
 app.use("/user-assets", express.static(path.join(__dirname, "user-assets")));
 app.use(express.urlencoded({ extended: true }));
+
+// Stripe Middleware as stripe accepts only raw
+app.use("/backend/stripe/webhook", express.raw({ type: "application/json" }), webhook_router);
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(compression());
@@ -87,7 +98,15 @@ app.use("/backend", wishlist_router);
 
 app.use("/backend", payment_router);
 
-app.use("/backend", webhook_router);
+// app.use("/backend", webhook_router);
+
+app.use("/backend", statistics_router);
+
+app.use("/backend", place_suggestion_router);
+
+app.use("/backend", attraction_router);
+
+app.use("/backend", llm_route);
 
 app.use("/backend", chat_assistant_router);
 
@@ -118,6 +137,9 @@ server.listen(port_number, async () => {
 
     // continuously consuming messages from delete wishlist queue
     await AMQP.consumeWishlistItem_DLQ("delete-wishlist-queue");
+
+    // start Cron
+    await CronManager.startAll();
     
   } catch (err) {
     console.log(err.message);
