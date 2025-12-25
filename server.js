@@ -24,6 +24,7 @@ import { booking_router } from "./routes/booking_route.js";
 import { wishlist_router } from "./routes/wishlist_route.js";
 import { payment_router } from "./routes/payment_route.js";
 import { webhook_router } from "./routes/webhook_route.js";
+import { chat_assistant_router } from "./routes/chat_assistant_route.js";
 
 // Resolve __dirname in ES modules
 export const __filename = fileURLToPath(import.meta.url);
@@ -88,6 +89,7 @@ app.use("/backend", payment_router);
 
 app.use("/backend", webhook_router);
 
+app.use("/backend", chat_assistant_router);
 
 //response for Undeclared api endpoint
 app.use(Endpoint_notfound);
