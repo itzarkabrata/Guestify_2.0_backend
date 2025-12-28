@@ -27,10 +27,11 @@ import { webhook_router } from "./routes/webhook_route.js";
 import { statistics_router } from "./routes/stat_route.js";
 import { place_suggestion_router } from "./routes/location_route.js";
 import { attraction_router } from "./routes/local_attraction_route.js";
+import { extension_router } from "./routes/extension_route.js";
+import { llm_route } from "./LLM/route.js";
 
 // Import CRON JOB Workers
 import { CronManager } from "./cron-job-worker/index.js";
-import { llm_route } from "./LLM/route.js";
 
 // Resolve __dirname in ES modules
 export const __filename = fileURLToPath(import.meta.url);
@@ -104,6 +105,8 @@ app.use("/backend", statistics_router);
 app.use("/backend", place_suggestion_router);
 
 app.use("/backend", attraction_router);
+
+app.use("/backend", extension_router);
 
 app.use("/backend", llm_route);
 
