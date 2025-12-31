@@ -1,8 +1,7 @@
 import {Router} from "express";
-import { chatWithAssistant } from "../controller/chat_assistant_class.js";
+import { ChatAssistant } from "../controller/chat_assistant_class.js";
 
 const router = Router();
 
-router.post("/chatAssistant", chatWithAssistant);
-
+router.post("/chat", ChatAssistant.chat);
 export const chat_assistant_router = router;

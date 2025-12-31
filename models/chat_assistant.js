@@ -14,4 +14,10 @@ const chatSchema = new Schema(
   { timestamps: true }
 );
 
+chatSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 60 * 60 * 24 } // 1 day
+);
+
+
 export default mongoose.model("Chat", chatSchema);
