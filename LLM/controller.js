@@ -77,7 +77,9 @@ export class LLMController {
           ...session,
           agreementMarkdown: fullText,
           version: (session.version || 1) + 1,
-        })
+        }),
+        "EX",
+        2*60*60 // 2 hours expiry
       );
 
       // Done
