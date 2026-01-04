@@ -5,7 +5,7 @@ import { LocalAttraction } from "../controller/local_attraction_class.js";
 const router = Router();
 
 // Get All Place Suggestions
-router.get("/pg/:pg_id/attractions", User.isLoggedIn, LocalAttraction.getLocalAttractions);
+router.get("/pg/:pg_id/attractions", LocalAttraction.getLocalAttractions);
 
 // Get Attractions for an Admin
 router.get("/admin/attractions", User.isLoggedIn, LocalAttraction.getAdminAttractions);
