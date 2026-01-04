@@ -688,12 +688,12 @@ export class User {
         );
       }
     } catch (error) {
-      console.log(error.message);
-      if (error instanceof ApiError) {
+      console.log(error);
+      if (error instanceof ApiError || error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
         return ApiResponse.error(
           res,
-          "User Authorization failed",
-          error.statusCode,
+          "User Authorization failed in isLoggedIn middleware",
+          401,
           error.message
         );
       } else {
