@@ -12,6 +12,7 @@ import {
   EvalError,
   InternalServerError,
   NotFoundError,
+  TokenExpirationError,
   TypeError,
 } from "../server-utils/ApiError.js";
 import { ApiResponse } from "../server-utils/ApiResponse.js";
@@ -657,7 +658,7 @@ export class User {
           process.env.JWT_SECRET_KEY
         );
       } catch (err) {
-        throw new AuthorizationError("User Authorization failed : Invalid or Expired Token");
+        throw new TokenExpirationError("User Authorization failed : Invalid or Expired Token");
       }
 
       const { user_id, email } = decoded_token;
