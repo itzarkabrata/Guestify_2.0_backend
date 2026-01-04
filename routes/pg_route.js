@@ -23,6 +23,7 @@ router.get("/getPgForMap", Pg.getPg_forMap);
 router.get("/getPgNearMe", Pg.getPgNearMe);
 router.get("/getPgNearPg/:id",Pg.getPgNearPg);
 router.get("/getPg/:id",Pg.getPg);
+router.get("/pg/catelogue", User.isLoggedIn, Pg.getPGCatelogue);
 
 // === Below routes need user authentication
 router.get("/getPg/user/:userid",User.isLoggedIn,Pg.getPG_ByUser);

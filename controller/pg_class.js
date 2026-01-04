@@ -541,10 +541,17 @@ export class Pg {
       const user = await User_Model.findById(user_id);
       if (!user) throw new NotFoundError("User not found");
 
-      const pgs = await PgInfo_Model.find({user_id: user._id},{_id: 1, pg_name: 1, address: 1, pg_type: 1});
+      const pgs = await PgInfo_Model.find(
+        { user_id: user._id },
+        { _id: 1, pg_name: 1, address: 1, pg_type: 1 }
+      );
 
-      return ApiResponse?.success(res, pgs, "Catelogue Fetched SuccessFully", 200);
-
+      return ApiResponse?.success(
+        res,
+        pgs,
+        "Catelogue Fetched SuccessFully",
+        200
+      );
     } catch (error) {
       console.error(error.message);
 
@@ -1321,12 +1328,16 @@ export class Pg {
       }
 
       // Check if the room under this pg is booked by or not
-      const room_info = await RoomInfo_Model.find({pg_id: id, booked_by: { $ne: null }}, {_id: 1, booked_by:1, booking_status: 1});
+      const room_info = await RoomInfo_Model.find(
+        { pg_id: id, booked_by: { $ne: null } },
+        { _id: 1, booked_by: 1, booking_status: 1 }
+      );
 
-      if(room_info?.length > 0){
-        throw new Error(`${room_info?.length} Rooms are Booked under this Paying Guest House`);
+      if (room_info?.length > 0) {
+        throw new Error(
+          `${room_info?.length} Rooms are Booked under this Paying Guest House`
+        );
       }
-
 
       // extract and delete old image if exists
       const prev_img = await PgInfo_Model.findOne(
@@ -1773,6 +1784,76 @@ export class Pg {
         message: "Room Creation failed, transaction rolled back",
         error: error.message,
       });
+    }
+  }
+
+  static async getPGCatelogue(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new Error("Database server is not connected properly");
+      }
+
+      const { id, is_admin } = req?.user;
+
+      if(!is_admin){
+        throw new AuthorizationError("Only admin can view the catelogues");
+      }
+
+      const pipeline = [
+        { $match: { user_id: new mongoose.Types.ObjectId(String(id))}},
+
+        {
+          $lookup: {
+            from: "users",
+            localField: "user_id",
+            foreignField: "_id",
+            as: "user_info",
+          }
+        },
+
+        { $unwind: "$user_info"},
+
+        {
+          $project: {
+            pg_name: 1,
+            address: 1,
+            district: 1,
+            state: 1,
+            pincode: 1,
+            pg_type: 1,
+            owner_fname: "$user_info.first_name",
+            owner_lname: "$user_info.last_name",
+            owner_address: "$user_info.address",
+          }
+        }
+      ]
+
+      const pgs = await PgInfo_Model.aggregate(pipeline);
+
+      return ApiResponse?.success(
+        res,
+        pgs,
+        "Catelogue Fetched SuccessFully",
+        200
+      );
+    } catch (error) {
+      console.error(error.message);
+
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Catelogue not Fetched SuccessFully",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Catelogue not Fetched SuccessFully",
+          500,
+          error.message
+        );
+      }
     }
   }
 }
