@@ -17,6 +17,7 @@ import {
 } from "../server-utils/ApiError.js";
 import { ApiResponse } from "../server-utils/ApiResponse.js";
 
+
 export class User {
   static async getAllUsers(_req, res) {
     try {
