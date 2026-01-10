@@ -237,7 +237,7 @@ export class Room {
       }
 
       // Check if the room booked
-      if(Room.IsRoomBooked(roomid)){
+      if (Room.IsRoomBooked(roomid)) {
         throw new Error("This room has already been Booked");
       }
 
@@ -350,7 +350,7 @@ export class Room {
     return result[0]?.minRent;
   }
 
-  static async IsRoomBooked(room_id){
+  static async IsRoomBooked(room_id) {
     if (!(await Database.isConnected())) {
       throw new Error("Database server is not connected properly");
     }
@@ -377,17 +377,78 @@ export class Room {
 
       const { pg_id } = req?.params;
 
+      const { status = "all" } = req?.query;
+
       const pg = await PgInfo_Model.findById(pg_id);
       if (!pg) throw new NotFoundError("PG ID not found");
 
-      const rooms = await RoomInfo_Model.find(
-        { pg_id: pg._id },
-        { _id: 1, pg_id: 1, room_type: 1, room_rent: 1, pg_type: 1, deposit_duration: 1, booked_by: 1, booking_status: 1 }
-      );
+      let result = [];
+
+      if (status === "booked") {
+        const pipeline = [
+          { $match: { pg_id: new mongoose.Types.ObjectId(String(pg_id)), booking_status: "booked" } },
+
+          {
+            $lookup: {
+              from: "bookings",
+              localField: "_id",
+              foreignField: "room_id",
+              as: "booking_info",
+            }
+          },
+
+          {
+            $unwind: "$booking_info"
+          },
+
+          {
+            $match: {
+              "booking_info.revolked_at": { $eq: null},
+              "booking_info.revolked_by": { $eq: null},
+              "booking_info.accepted_at": { $ne: null},
+              "booking_info.accepted_by": { $ne: null},
+            }
+          },
+
+          {
+            $project: {
+              _id: 1,
+              pg_id: 1,
+              room_type: 1,
+              room_rent: 1,
+              deposit_duration: 1,
+              booked_by: 1,
+              aminities: 1,
+              start_date: "$booking_info.start_date",
+              duration_year: "$booking_info.duration.year",
+              duration_month: "$booking_info.duration.month",
+              accepted_at: "$booking_info.accepted_at",
+            }
+          }
+        ];
+
+        result = await RoomInfo_Model.aggregate(pipeline);
+      }
+
+      if (status === "all") {
+        result = await RoomInfo_Model.find(
+          { pg_id: pg._id },
+          {
+            _id: 1,
+            pg_id: 1,
+            room_type: 1,
+            room_rent: 1,
+            pg_type: 1,
+            deposit_duration: 1,
+            booked_by: 1,
+            booking_status: 1,
+          }
+        );
+      }
 
       return ApiResponse?.success(
         res,
-        rooms,
+        result,
         "Catelogue Fetched SuccessFully",
         200
       );

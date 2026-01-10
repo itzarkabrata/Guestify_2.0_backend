@@ -25,6 +25,12 @@ export class AuthorizationError extends ApiError {
     super(403, message, error, stack);
   }
 }
+
+export class TokenExpirationError extends ApiError {
+  constructor(message = "Token Expired Error", error = "", stack = "") {
+    super(401, message, error, stack);
+  }
+}
 export class EvalError extends ApiError {
   constructor(message = "Evaluation Error", error = "", stack = "") {
     super(400, message, error, stack);

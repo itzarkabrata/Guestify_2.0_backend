@@ -24,7 +24,12 @@ import { booking_router } from "./routes/booking_route.js";
 import { wishlist_router } from "./routes/wishlist_route.js";
 import { payment_router } from "./routes/payment_route.js";
 import { webhook_router } from "./routes/webhook_route.js";
+import { chat_assistant_router } from "./routes/chat_assistant_route.js";
 import { statistics_router } from "./routes/stat_route.js";
+import { place_suggestion_router } from "./routes/location_route.js";
+import { attraction_router } from "./routes/local_attraction_route.js";
+import { extension_router } from "./routes/extension_route.js";
+import { llm_route } from "./LLM/route.js";
 
 // Import CRON JOB Workers
 import { CronManager } from "./cron-job-worker/index.js";
@@ -98,6 +103,15 @@ app.use("/backend", payment_router);
 
 app.use("/backend", statistics_router);
 
+app.use("/backend", place_suggestion_router);
+
+app.use("/backend", attraction_router);
+
+app.use("/backend", extension_router);
+
+app.use("/backend", llm_route);
+
+app.use("/backend", chat_assistant_router);
 
 //response for Undeclared api endpoint
 app.use(Endpoint_notfound);

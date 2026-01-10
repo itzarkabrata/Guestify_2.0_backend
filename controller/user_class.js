@@ -12,9 +12,11 @@ import {
   EvalError,
   InternalServerError,
   NotFoundError,
+  TokenExpirationError,
   TypeError,
 } from "../server-utils/ApiError.js";
 import { ApiResponse } from "../server-utils/ApiResponse.js";
+
 
 export class User {
   static async getAllUsers(_req, res) {
@@ -649,10 +651,16 @@ export class User {
         throw new AuthorizationError("User Authorization failed : Token not available");
       }
 
-      const decoded_token = await jwt.verify(
-        auth_token.split(" ")[1],
-        process.env.JWT_SECRET_KEY
-      );
+      let decoded_token;
+
+      try {
+        decoded_token = await jwt.verify(
+          auth_token.split(" ")[1],
+          process.env.JWT_SECRET_KEY
+        );
+      } catch (err) {
+        throw new TokenExpirationError("User Authorization failed : Invalid or Expired Token");
+      }
 
       const { user_id, email } = decoded_token;
 
@@ -692,7 +700,7 @@ export class User {
       if (error instanceof ApiError) {
         return ApiResponse.error(
           res,
-          "User Authorization failed",
+          "User Authorization failed in isLoggedIn middleware",
           error.statusCode,
           error.message
         );
