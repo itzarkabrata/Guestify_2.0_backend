@@ -737,7 +737,7 @@ export class Statistics {
         ...data[0],
         percent_occupied:
           Math.round(
-            (data[0].occupied_rooms / data[0].total_rooms) * 100 * 100
+            ((data[0]?.occupied_rooms || 0) / (data[0]?.total_rooms || 1)) * 100 * 100
           ) / 100,
       };
 
