@@ -530,6 +530,78 @@ export class Pg {
     }
   }
 
+  static async getAllEnlistedPGCatelogue(req, res) {
+    try {
+      if (!(await Database.isConnected())) {
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
+      }
+
+      const { page, limit } = req?.query;
+
+      // if page or limit is given then only pageinate
+      const requestedPage = page ? Number(page) : null;
+      const requestedLimit = limit ? Number(limit) : null;
+
+      const pipeline = [
+        ...(requestedPage && requestedLimit > 0
+          ? [
+              { $skip: (requestedPage - 1) * requestedLimit },
+              { $limit: requestedLimit },
+            ]
+          : []),
+        {
+          $project: {
+            _id: 1,
+            pg_name: 1,
+            pg_type: 1,
+            updatedAt: 1,
+            createdAt: 1,
+          },
+        },
+      ];
+
+      const pgs = await PgInfo_Model.aggregate(pipeline);
+
+      const totalCount = await PgInfo_Model.countDocuments();
+
+      return ApiResponse?.success(
+        res,
+        {
+          ...(requestedPage && requestedLimit > 0
+            ? {
+                total_pages: Math.ceil(totalCount / requestedLimit),
+                current_page: requestedPage,
+                per_page: requestedLimit,
+              }
+            : {}),
+          count: pgs.length,
+          PgList: pgs,
+        },
+        "PG Catelogue Fetched SuccessFully",
+        200
+      );
+    } catch (error) {
+      console.error(error.message);
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "PG not fetched successfully",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "PG not fetched successfully",
+          500,
+          error.message
+        );
+      }
+    }
+  }
+
   static async getPGCatelogue(req, res) {
     try {
       if (!(await Database.isConnected())) {
@@ -1795,12 +1867,12 @@ export class Pg {
 
       const { id, is_admin } = req?.user;
 
-      if(!is_admin){
+      if (!is_admin) {
         throw new AuthorizationError("Only admin can view the catelogues");
       }
 
       const pipeline = [
-        { $match: { user_id: new mongoose.Types.ObjectId(String(id))}},
+        { $match: { user_id: new mongoose.Types.ObjectId(String(id)) } },
 
         {
           $lookup: {
@@ -1808,10 +1880,10 @@ export class Pg {
             localField: "user_id",
             foreignField: "_id",
             as: "user_info",
-          }
+          },
         },
 
-        { $unwind: "$user_info"},
+        { $unwind: "$user_info" },
 
         {
           $project: {
@@ -1824,9 +1896,9 @@ export class Pg {
             owner_fname: "$user_info.first_name",
             owner_lname: "$user_info.last_name",
             owner_address: "$user_info.address",
-          }
-        }
-      ]
+          },
+        },
+      ];
 
       const pgs = await PgInfo_Model.aggregate(pipeline);
 
