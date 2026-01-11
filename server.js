@@ -30,6 +30,7 @@ import { place_suggestion_router } from "./routes/location_route.js";
 import { attraction_router } from "./routes/local_attraction_route.js";
 import { extension_router } from "./routes/extension_route.js";
 import { llm_route } from "./LLM/route.js";
+import { uptime_router } from "./routes/special/uptime_route.js";
 
 // Import CRON JOB Workers
 import { CronManager } from "./cron-job-worker/index.js";
@@ -71,6 +72,8 @@ app.use(compression());
 // });
 
 // routes
+app.use("/backend", uptime_router);
+
 app.use("/backend", notification_router);
 
 app.use("/backend", college_router);
