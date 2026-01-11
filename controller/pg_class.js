@@ -538,6 +538,8 @@ export class Pg {
         );
       }
 
+      const frontend_url = process.env.FRONTEND_URL || "";
+
       const { page, limit } = req?.query;
 
       // if page or limit is given then only pageinate
@@ -552,10 +554,17 @@ export class Pg {
             ]
           : []),
         {
+          $addFields: {
+            targetUrl: {
+              $concat: [frontend_url, "/pg/", { $toString: "$_id" }],
+            },
+          },
+        },
+        {
           $project: {
             _id: 1,
             pg_name: 1,
-            pg_type: 1,
+            targetUrl: 1,
             updatedAt: 1,
             createdAt: 1,
           },
