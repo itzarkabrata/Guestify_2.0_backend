@@ -17,6 +17,7 @@ const router = Router();
 // Cloudinary implementation
 const upload = multer({ storage: storage });
 
+router.get("/enlisted-pg/all", Pg.getAllEnlistedPGCatelogue);
 router.get("/getAllPg",Pg.getAllPg);
 router.get("/getAllPgByDistrict", Pg.getAllPgByDistrict);
 router.get("/getPgForMap", Pg.getPg_forMap);
