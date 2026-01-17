@@ -272,13 +272,13 @@ export class Statistics {
         `user-stats-${uid}`,
         JSON.stringify(finalResponse),
         "EX",
-        120
+        120,
       );
 
       return ApiResponse.success(
         res,
         finalResponse,
-        "Data fetched successfully"
+        "Data fetched successfully",
       );
     } catch (error) {
       console.error(error.message);
@@ -287,14 +287,14 @@ export class Statistics {
           res,
           "Data not fetched successfully",
           error.statusCode,
-          error.message
+          error.message,
         );
       } else {
         return ApiResponse.error(
           res,
           "Data not fetched successfully",
           500,
-          error.message
+          error.message,
         );
       }
     }
@@ -307,7 +307,7 @@ export class Statistics {
       }
 
       const { uid } = req.params;
-      const { year, pg_id } = req.query;
+      const { year, pg_id, type = "month" } = req.query;
 
       const user = await User_Model.findById(uid);
       if (!user) throw new NotFoundError("Admin not found");
@@ -347,15 +347,34 @@ export class Statistics {
 
         {
           $group: {
-            _id: {
-              year: { $year: "$rooms.createdAt" },
-              month: { $month: "$rooms.createdAt" },
-            },
+            _id:
+              type === "day"
+                ? {
+                    year: { $year: "$rooms.createdAt" },
+                    month: { $month: "$rooms.createdAt" },
+                    day: { $dayOfMonth: "$rooms.createdAt" },
+                  }
+                : {
+                    year: { $year: "$rooms.createdAt" },
+                    month: { $month: "$rooms.createdAt" },
+                  },
             count: { $sum: 1 },
           },
         },
 
-        { $sort: { "_id.year": 1, "_id.month": 1 } },
+        {
+          $sort:
+            type === "day"
+              ? {
+                  "_id.year": 1,
+                  "_id.month": 1,
+                  "_id.day": 1,
+                }
+              : {
+                  "_id.year": 1,
+                  "_id.month": 1,
+                },
+        },
 
         {
           $project: {
@@ -383,6 +402,7 @@ export class Statistics {
               },
             },
             year: "$_id.year",
+            ...(type === "day" && { day: "$_id.day" }),
             count: 1,
           },
         },
@@ -393,7 +413,7 @@ export class Statistics {
       return ApiResponse.success(
         res,
         data,
-        "Room enlisted graph fetched successfully"
+        "Room enlisted graph fetched successfully",
       );
     } catch (error) {
       console.error(error.message);
@@ -402,7 +422,7 @@ export class Statistics {
           res,
           "Failed",
           error.statusCode,
-          error.message
+          error.message,
         );
       }
       return ApiResponse.error(res, "Failed", 500, error.message);
@@ -418,7 +438,7 @@ export class Statistics {
 
       if (!is_admin) {
         throw new AuthorizationError(
-          "Users are not authorised to view transaction stats"
+          "Users are not authorised to view transaction stats",
         );
       }
 
@@ -503,7 +523,7 @@ export class Statistics {
           res,
           "Data not fetched",
           error.statusCode,
-          error.message
+          error.message,
         );
       }
       return ApiResponse.error(res, "Data not fetched", 500, error.message);
@@ -519,7 +539,7 @@ export class Statistics {
 
       if (!is_admin) {
         throw new AuthorizationError(
-          "Users are not authorised to view transaction summary"
+          "Users are not authorised to view transaction summary",
         );
       }
 
@@ -610,11 +630,7 @@ export class Statistics {
         totalTransactions: summaryResult[0].total[0]?.count || 0,
       };
 
-      return ApiResponse.success(
-        res,
-        summary,
-        "Data fetched successfully"
-      );
+      return ApiResponse.success(res, summary, "Data fetched successfully");
     } catch (error) {
       console.error(error.message);
       if (error instanceof ApiError) {
@@ -622,7 +638,7 @@ export class Statistics {
           res,
           "Data not fetched",
           error.statusCode,
-          error.message
+          error.message,
         );
       }
       return ApiResponse.error(res, "Data not fetched", 500, error.message);
@@ -737,7 +753,9 @@ export class Statistics {
         ...data[0],
         percent_occupied:
           Math.round(
-            ((data[0]?.occupied_rooms || 0) / (data[0]?.total_rooms || 1)) * 100 * 100
+            ((data[0]?.occupied_rooms || 0) / (data[0]?.total_rooms || 1)) *
+              100 *
+              100,
           ) / 100,
       };
 
@@ -749,7 +767,7 @@ export class Statistics {
           res,
           "Pg Stats not fetched",
           error.statusCode,
-          error.message
+          error.message,
         );
       }
       return ApiResponse.error(res, "Pg Stats not fetched", 500, error.message);
@@ -802,7 +820,7 @@ export class Statistics {
           formatted = day_data?.map((item) => ({
             label: `${item._id.year}-${String(item._id.month).padStart(
               2,
-              "0"
+              "0",
             )}-${String(item._id.day).padStart(2, "0")}`, // Example: "2025-11-23"
             value: item.count,
           }));
@@ -849,7 +867,7 @@ export class Statistics {
           formatted = month_data?.map((item) => ({
             label: `${item._id.year}-${String(item._id.month).padStart(
               2,
-              "0"
+              "0",
             )}`, // "2025-11"
             value: item.count,
           }));
@@ -866,7 +884,7 @@ export class Statistics {
           res,
           "Data not fetched",
           error.statusCode,
-          error.message
+          error.message,
         );
       }
       return ApiResponse.error(res, "Data not fetched", 500, error.message);
