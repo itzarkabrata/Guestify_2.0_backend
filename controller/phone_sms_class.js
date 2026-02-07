@@ -1,5 +1,11 @@
 import { Database } from "../lib/connect.js";
 import { client, verifyServiceSid } from "../lib/twilio.config.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
+import {
+  ApiError,
+  InternalServerError,
+  EvalError,
+} from "../server-utils/ApiError.js";
 
 export class PhoneSMS {
   static async sendVerificationCode(req, res) {
@@ -12,13 +18,14 @@ export class PhoneSMS {
 
         // for testing purposes, bypass OTP verification
         if (process.env.OTP_BYPASS === "true") {
-          return res.status(200).json({
-            message: "OTP bypassed for testing",
-            data: {
+          return ApiResponse.success(
+            res,
+            {
               phoneNumber: phoneNumber,
               bypassed: true,
             },
-          });
+            "OTP bypassed for testing"
+          );
         }
 
         const verification = await client.verify.v2
@@ -28,23 +35,28 @@ export class PhoneSMS {
             channel: "sms",
           });
 
-        res.status(200).json({
-          message: "Verification code sent successfully",
-          data: {
+        return ApiResponse.success(
+          res,
+          {
             phoneNumber: phoneNumber,
             bypassed: false,
             sid: verification.sid,
-          }
-        });
+          },
+          "Verification code sent successfully"
+        );
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.log(error.message);
-      res.status(500).json({
-        message: "Failed to send verification code",
-        error: error.message,
-      });
+      return ApiResponse.error(
+        res,
+        "Failed to send verification code",
+        500,
+        error.message
+      );
     }
   }
 
@@ -69,21 +81,28 @@ export class PhoneSMS {
           });
 
         if (verificationCheck.status === "approved") {
-          res.json({ success: true, message: "OTP verified successfully" });
+          return ApiResponse.success(res, null, "OTP verified successfully");
         } else {
-          res
-            .status(400)
-            .json({ success: false, message: "Invalid or expired OTP" });
+          return ApiResponse.error(
+            res,
+            "Invalid or expired OTP",
+            400,
+            ""
+          );
         }
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.log(error.message);
-      res.status(500).json({
-        message: "Verification failed or not completed",
-        error: error.message,
-      });
+      return ApiResponse.error(
+        res,
+        "Verification failed or not completed",
+        500,
+        error.message
+      );
     }
   }
 }

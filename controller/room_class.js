@@ -284,16 +284,20 @@ export class Room {
       //publishing to amqp server
       AMQP.publishMsg("noti-queue", msg);
 
-      res.status(200).json({
-        message: "Room Deleted successfully",
-      });
+      return ApiResponse.success(
+        res,
+        null,
+        "Room Deleted successfully"
+      );
     } catch (error) {
       console.error(error.message);
 
-      res.status(500).json({
-        message: "Failed to delete PG Room Details",
-        error: error.message,
-      });
+      return ApiResponse.error(
+        res,
+        "Failed to delete PG Room Details",
+        500,
+        error.message
+      );
     }
   }
 
@@ -322,17 +326,20 @@ export class Room {
         });
       }
 
-      res.status(200).json({
-        message: "Room Details Fetched Successfully",
-        data: details,
-      });
+      return ApiResponse.success(
+        res,
+        details,
+        "Room Details Fetched Successfully"
+      );
     } catch (error) {
       console.error(error.message);
 
-      res.status(500).json({
-        message: "Failed to fetch PG Room Details",
-        error: error.message,
-      });
+      return ApiResponse.error(
+        res,
+        "Failed to fetch PG Room Details",
+        500,
+        error.message
+      );
     }
   }
 
@@ -403,10 +410,10 @@ export class Room {
 
           {
             $match: {
-              "booking_info.revolked_at": { $eq: null},
-              "booking_info.revolked_by": { $eq: null},
-              "booking_info.accepted_at": { $ne: null},
-              "booking_info.accepted_by": { $ne: null},
+              "booking_info.revolked_at": { $eq: null },
+              "booking_info.revolked_by": { $eq: null },
+              "booking_info.accepted_at": { $ne: null },
+              "booking_info.accepted_by": { $ne: null },
             }
           },
 

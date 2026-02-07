@@ -9,6 +9,13 @@ import { RoomInfo_Model } from "../models/roominfo.js";
 import { Review_Model } from "../models/reviews.js";
 import { redisClient } from "../lib/redis.config.js";
 import { Wishlist_Model } from "../models/wishlist.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
+import {
+  ApiError,
+  TypeError as ApiTypeError,
+  InternalServerError,
+  EvalError as ApiEvalError,
+} from "../server-utils/ApiError.js";
 
 export class UserProfile {
   static async getProfile(req, res) {
@@ -24,34 +31,37 @@ export class UserProfile {
           );
         }
 
-        const user = await User_Model.find({ _id: uid },{ password: 0});
+        const user = await User_Model.find({ _id: uid }, { password: 0 });
 
-        const wishlist_pgs = await Wishlist_Model.find({ user_id: uid },{ pg_id: 1, _id: 0 });
+        const wishlist_pgs = await Wishlist_Model.find({ user_id: uid }, { pg_id: 1, _id: 0 });
 
-        res.status(200).json({
-          message: "User fetched successfully",
-          data: {...user[0]._doc, wishlist: wishlist_pgs?.map(item => item.pg_id)},
-        });
+        return ApiResponse.success(
+          res,
+          { ...user[0]._doc, wishlist: wishlist_pgs?.map(item => item.pg_id) },
+          "User fetched successfully"
+        );
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.log(error.message);
 
-      if (
-        error instanceof ReferenceError ||
-        error instanceof TypeError ||
-        error instanceof mongoose.MongooseError
-      ) {
-        res.status(400).json({
-          message: "User is not fetched successfully",
-          error: error.message,
-        });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "User is not fetched successfully",
+          error.statusCode,
+          error.message
+        );
       } else {
-        res.status(400).json({
-          message: "User is not fetched successfully",
-          error: error.message,
-        });
+        return ApiResponse.error(
+          res,
+          "User is not fetched successfully",
+          500,
+          error.message
+        );
       }
     }
   }
@@ -164,38 +174,41 @@ export class UserProfile {
           //publishing to amqp server
           AMQP.publishMsg("noti-queue", msg);
 
-          res.status(200).json({
-            message: "User details updated successfully",
-            data: {
+          return ApiResponse.success(
+            res,
+            {
               info: updated_user[0],
               updated_token: token,
             },
-          });
+            "User details updated successfully"
+          );
         } else {
           throw new ReferenceError(
             "Something Went wrong while changing user details"
           );
         }
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.log(error.message);
 
-      if (
-        error instanceof ReferenceError ||
-        error instanceof TypeError ||
-        error instanceof mongoose.MongooseError
-      ) {
-        res.status(400).json({
-          message: "User is not updated successfully",
-          error: error.message,
-        });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "User is not updated successfully",
+          error.statusCode,
+          error.message
+        );
       } else {
-        res.status(400).json({
-          message: "User is not updated successfully",
-          error: error.message,
-        });
+        return ApiResponse.error(
+          res,
+          "User is not updated successfully",
+          500,
+          error.message
+        );
       }
     }
   }
@@ -226,27 +239,28 @@ export class UserProfile {
       //delete the authToken
       res.clearCookie("authToken");
 
-      res.status(200).json({
-        message: "User deleted successfully",
-        data: deleted_user_res,
-      });
+      return ApiResponse.success(
+        res,
+        deleted_user_res,
+        "User deleted successfully"
+      );
     } catch (error) {
       console.log(error.message);
 
-      if (
-        error instanceof ReferenceError ||
-        error instanceof TypeError ||
-        error instanceof mongoose.MongooseError
-      ) {
-        res.status(400).json({
-          message: "User is not deleted successfully",
-          error: error.message,
-        });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "User is not deleted successfully",
+          error.statusCode,
+          error.message
+        );
       } else {
-        res.status(500).json({
-          message: "User is not deleted successfully",
-          error: error.message,
-        });
+        return ApiResponse.error(
+          res,
+          "User is not deleted successfully",
+          500,
+          error.message
+        );
       }
     }
   }

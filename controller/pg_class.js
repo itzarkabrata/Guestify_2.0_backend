@@ -49,9 +49,8 @@ export class Pg {
       );
       if (roomfile) {
         // Save file to cloud / disk and get URL
-        room.room_image_url = `${req.protocol}://${req.get("host")}/${
-          roomfile?.path
-        }`;
+        room.room_image_url = `${req.protocol}://${req.get("host")}/${roomfile?.path
+          }`;
       }
 
       rooms.push(room);
@@ -131,25 +130,25 @@ export class Pg {
         // Filter by search (pg name or street name)
         ...(search
           ? [
-              {
-                $match: {
-                  $or: [
-                    {
-                      pg_name: {
-                        $regex: search,
-                        $options: "i",
-                      },
+            {
+              $match: {
+                $or: [
+                  {
+                    pg_name: {
+                      $regex: search,
+                      $options: "i",
                     },
-                    {
-                      street_name: {
-                        $regex: search,
-                        $options: "i",
-                      },
+                  },
+                  {
+                    street_name: {
+                      $regex: search,
+                      $options: "i",
                     },
-                  ],
-                },
+                  },
+                ],
               },
-            ]
+            },
+          ]
           : []),
 
         // Step 3: Join with rooms collection
@@ -172,15 +171,15 @@ export class Pg {
                 cond:
                   min !== null || max !== null
                     ? {
-                        $and: [
-                          ...(min !== null
-                            ? [{ $gte: ["$$room.room_rent", min] }]
-                            : []),
-                          ...(max !== null
-                            ? [{ $lte: ["$$room.room_rent", max] }]
-                            : []),
-                        ],
-                      }
+                      $and: [
+                        ...(min !== null
+                          ? [{ $gte: ["$$room.room_rent", min] }]
+                          : []),
+                        ...(max !== null
+                          ? [{ $lte: ["$$room.room_rent", max] }]
+                          : []),
+                      ],
+                    }
                     : { $gt: ["$$room.room_rent", -1] }, // always true fallback
               },
             },
@@ -432,15 +431,15 @@ export class Pg {
                 cond:
                   min !== null || max !== null
                     ? {
-                        $and: [
-                          ...(min !== null
-                            ? [{ $gte: ["$$room.room_rent", min] }]
-                            : []),
-                          ...(max !== null
-                            ? [{ $lte: ["$$room.room_rent", max] }]
-                            : []),
-                        ],
-                      }
+                      $and: [
+                        ...(min !== null
+                          ? [{ $gte: ["$$room.room_rent", min] }]
+                          : []),
+                        ...(max !== null
+                          ? [{ $lte: ["$$room.room_rent", max] }]
+                          : []),
+                      ],
+                    }
                     : { $gt: ["$$room.room_rent", -1] }, // always true fallback
               },
             },
@@ -515,18 +514,20 @@ export class Pg {
         final_response?.push(res_data);
       }
 
-      res.status(200).json({
-        message: "PGs fetched successfully",
-        count: final_response.length,
-        data: final_response,
-      });
+      return ApiResponse.success(
+        res,
+        final_response,
+        "PGs fetched successfully"
+      );
     } catch (error) {
       console.error(error.message);
 
-      res.status(500).json({
-        message: "Failed to fetch PGs",
-        error: error.message,
-      });
+      return ApiResponse.error(
+        res,
+        "Failed to fetch PGs",
+        500,
+        error.message
+      );
     }
   }
 
@@ -549,9 +550,9 @@ export class Pg {
       const pipeline = [
         ...(requestedPage && requestedLimit > 0
           ? [
-              { $skip: (requestedPage - 1) * requestedLimit },
-              { $limit: requestedLimit },
-            ]
+            { $skip: (requestedPage - 1) * requestedLimit },
+            { $limit: requestedLimit },
+          ]
           : []),
         {
           $addFields: {
@@ -580,10 +581,10 @@ export class Pg {
         {
           ...(requestedPage && requestedLimit > 0
             ? {
-                total_pages: Math.ceil(totalCount / requestedLimit),
-                current_page: requestedPage,
-                per_page: requestedLimit,
-              }
+              total_pages: Math.ceil(totalCount / requestedLimit),
+              current_page: requestedPage,
+              per_page: requestedLimit,
+            }
             : {}),
           count: pgs.length,
           PgList: pgs,
@@ -744,15 +745,15 @@ export class Pg {
                 cond:
                   min !== null || max !== null
                     ? {
-                        $and: [
-                          ...(min !== null
-                            ? [{ $gte: ["$$room.room_rent", min] }]
-                            : []),
-                          ...(max !== null
-                            ? [{ $lte: ["$$room.room_rent", max] }]
-                            : []),
-                        ],
-                      }
+                      $and: [
+                        ...(min !== null
+                          ? [{ $gte: ["$$room.room_rent", min] }]
+                          : []),
+                        ...(max !== null
+                          ? [{ $lte: ["$$room.room_rent", max] }]
+                          : []),
+                      ],
+                    }
                     : { $gt: ["$$room.room_rent", -1] }, // always true fallback
               },
             },
@@ -802,24 +803,25 @@ export class Pg {
 
       const pgList = await PgInfo_Model.aggregate(pipeline);
 
-      res.status(200).json({
-        message: "PGs fetched successfully",
-        count: pgList.length,
-        data: pgList.map((pg) => ({
+      return ApiResponse.success(
+        res,
+        pgList.map((pg) => ({
           _id: pg._id,
           pg_name: pg.pg_name,
           address: pg.address,
           location: pg.location,
-          // pg_image_url: pg.pg_image_url,
         })),
-      });
+        "PGs fetched successfully"
+      );
     } catch (error) {
       console.error(error.message);
 
-      res.status(500).json({
-        message: "Failed to fetch PGs for map",
-        error: error.message,
-      });
+      return ApiResponse.error(
+        res,
+        "Failed to fetch PGs for map",
+        500,
+        error.message
+      );
     }
   }
 
@@ -837,17 +839,20 @@ export class Pg {
 
       const pg_basic_details = await PgInfo_Model.findById(id);
 
-      res.status(200).json({
-        message: "PG Basic Details fetched successfully",
-        data: pg_basic_details,
-      });
+      return ApiResponse.success(
+        res,
+        pg_basic_details,
+        "PG Basic Details fetched successfully"
+      );
     } catch (error) {
       console.error(error.message);
 
-      res.status(500).json({
-        message: "Failed to fetch PG Basic Details",
-        error: error.message,
-      });
+      return ApiResponse.error(
+        res,
+        "Failed to fetch PG Basic Details",
+        500,
+        error.message
+      );
     }
   }
 
@@ -922,23 +927,25 @@ export class Pg {
 
       const pgList = await PgInfo_Model.aggregate(pipeline);
 
-      res.status(200).json({
-        message: "Nearby PGs fetched successfully",
-        count: pgList.length,
-        data: pgList.map((pg) => ({
+      return ApiResponse.success(
+        res,
+        pgList.map((pg) => ({
           _id: pg._id,
           pg_name: pg.pg_name,
           address: pg.address,
           location: pg.location,
-          // pg_image_url: pg.pg_image_url,
         })),
-      });
+        "Nearby PGs fetched successfully"
+      );
     } catch (error) {
       console.error(error.message);
-      res.status(500).json({
-        message: "Failed to fetch nearby PGs",
-        error: error.message,
-      });
+
+      return ApiResponse.error(
+        res,
+        "Failed to fetch nearby PGs",
+        500,
+        error.message
+      );
     }
   }
 
@@ -1382,8 +1389,8 @@ export class Pg {
 
       const statusCode =
         error instanceof TypeError ||
-        error instanceof EvalError ||
-        error instanceof ReferenceError
+          error instanceof EvalError ||
+          error instanceof ReferenceError
           ? 400
           : 500;
 
@@ -1766,8 +1773,8 @@ export class Pg {
 
       const statusCode =
         error instanceof TypeError ||
-        error instanceof EvalError ||
-        error instanceof ReferenceError
+          error instanceof EvalError ||
+          error instanceof ReferenceError
           ? 400
           : 500;
 
@@ -1856,8 +1863,8 @@ export class Pg {
 
       const statusCode =
         error instanceof TypeError ||
-        error instanceof EvalError ||
-        error instanceof ReferenceError
+          error instanceof EvalError ||
+          error instanceof ReferenceError
           ? 400
           : 500;
 

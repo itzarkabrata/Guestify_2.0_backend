@@ -1,5 +1,10 @@
 import mongoose from "mongoose";
 import { Database } from "../lib/connect.js";
+import {
+  ApiError,
+  TypeError as ApiTypeError,
+  InternalServerError,
+} from "../server-utils/ApiError.js";
 
 export class SSE {
   static clients = {};
@@ -7,13 +12,15 @@ export class SSE {
   static async sseHandler(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
 
       const { userId } = req.params;
 
       if (!mongoose.Types.ObjectId.isValid(userId)) {
-        throw new TypeError("Invalid User ID format in params");
+        throw new ApiTypeError("Invalid User ID format in params");
       }
 
       res.setHeader("Content-Type", "text/event-stream");

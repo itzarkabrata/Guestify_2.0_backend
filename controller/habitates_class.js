@@ -1,4 +1,8 @@
 import { Habitate_Model } from "../models/habitate.js";
+import {
+  ApiError,
+  TypeError as ApiTypeError,
+} from "../server-utils/ApiError.js";
 
 export class Habitate {
   static async createHabitate(personsData, req, index, session) {
@@ -50,42 +54,42 @@ export class Habitate {
         identity_image_id
       } = personsData;
 
-      if(!booking_id) {
+      if (!booking_id) {
         throw new Error("Booking ID is required for Habitate creation");
       }
 
       // validate each habitate entry
       if (typeof first_name !== "string")
-        throw new TypeError("First name must be of type string");
+        throw new ApiTypeError("First name must be of type string");
       if (typeof last_name !== "string")
-        throw new TypeError("Last name must be of type string");
+        throw new ApiTypeError("Last name must be of type string");
       if (typeof age !== "number")
-        throw new TypeError("Age must be of type number");
+        throw new ApiTypeError("Age must be of type number");
       if (typeof gender !== "string")
-        throw new TypeError("Gender must be of type string");
+        throw new ApiTypeError("Gender must be of type string");
       if (!["male", "female", "other"].includes(gender))
-        throw new TypeError("Gender must be 'male', 'female', or 'other'");
+        throw new ApiTypeError("Gender must be 'male', 'female', or 'other'");
       if (typeof address !== "string")
-        throw new TypeError("Address must be of type string");
-      if( dial_code && typeof dial_code !== "string")
-        throw new TypeError("Dial code must be of type string");
-      if( contact_number && typeof contact_number !== "string")
-        throw new TypeError("Contact number must be of type string");
+        throw new ApiTypeError("Address must be of type string");
+      if (dial_code && typeof dial_code !== "string")
+        throw new ApiTypeError("Dial code must be of type string");
+      if (contact_number && typeof contact_number !== "string")
+        throw new ApiTypeError("Contact number must be of type string");
       if (typeof type_of_identity !== "string")
-        throw new TypeError("Type of identity must be of type string");
+        throw new ApiTypeError("Type of identity must be of type string");
       if (typeof identity_id !== "string")
-        throw new TypeError("Identity ID must be of type string");
-      if( typeof is_primary !== "number" && typeof is_primary !== "undefined")
-        throw new TypeError("is_primary must be of type number");
+        throw new ApiTypeError("Identity ID must be of type string");
+      if (typeof is_primary !== "number" && typeof is_primary !== "undefined")
+        throw new ApiTypeError("is_primary must be of type number");
       if (typeof image !== "string")
-        throw new TypeError("Image URL must be of type string");
+        throw new ApiTypeError("Image URL must be of type string");
       if (typeof image_id !== "string")
-        throw new TypeError("Image ID must be of type string");
+        throw new ApiTypeError("Image ID must be of type string");
       if (typeof identity_image !== "string")
-        throw new TypeError("Identity Image URL must be of type string");
+        throw new ApiTypeError("Identity Image URL must be of type string");
       if (typeof identity_image_id !== "string")
-        throw new TypeError("Identity Image ID must be of type string");
-      
+        throw new ApiTypeError("Identity Image ID must be of type string");
+
 
       const newHabitate = new Habitate_Model({
         booking_id,
@@ -108,8 +112,11 @@ export class Habitate {
       const enlistedHabitate = await newHabitate.save({ session });
 
       return enlistedHabitate;
-      
+
     } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
       throw new Error("Error creating habitate: " + error.message);
     }
   }
