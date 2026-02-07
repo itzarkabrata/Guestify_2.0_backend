@@ -2,6 +2,13 @@ import mongoose from "mongoose";
 import { Database } from "../lib/connect.js";
 import { Notification_Model } from "../models/notification.js";
 import { SSE } from "./sse_class.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
+import {
+  ApiError,
+  TypeError as ApiTypeError,
+  InternalServerError,
+  NotFoundError,
+} from "../server-utils/ApiError.js";
 
 export class NewNotification {
   static async createNotification({
@@ -14,35 +21,37 @@ export class NewNotification {
     date_of_noti,
   }) {
     if (!(await Database.isConnected())) {
-      throw new Error("Database server is not connected properly");
+      throw new InternalServerError(
+        "Database server is not connected properly"
+      );
     }
 
     if (!(typeof message === "string")) {
-      throw new TypeError("Message must be of type string");
+      throw new ApiTypeError("Message must be of type string");
     }
 
     if (!(typeof category === "string")) {
-      throw new TypeError("Category must be of type string");
+      throw new ApiTypeError("Category must be of type string");
     }
 
     if (!(typeof notification_type === "string")) {
-      throw new TypeError("Notification type must be of type string");
+      throw new ApiTypeError("Notification type must be of type string");
     }
 
     if (recipient && !mongoose.Types.ObjectId.isValid(recipient)) {
-      throw new TypeError("Recipient must be a valid ObjectId");
+      throw new ApiTypeError("Recipient must be a valid ObjectId");
     }
 
     if (device_token && !(typeof device_token === "string")) {
-      throw new TypeError("Device token must be of type string");
+      throw new ApiTypeError("Device token must be of type string");
     }
 
     if (!(typeof isRead === "boolean")) {
-      throw new TypeError("isRead must be of type boolean");
+      throw new ApiTypeError("isRead must be of type boolean");
     }
 
     if (date_of_noti && !(typeof date_of_noti === "string")) {
-      throw new TypeError("Date of notification must be of type string");
+      throw new ApiTypeError("Date of notification must be of type string");
     }
 
     const notification = new Notification_Model({
@@ -75,34 +84,48 @@ export class NewNotification {
       const { userid } = req.params;
 
       if (!userid) {
-        throw new Error("User ID not found while fetching notifications");
+        throw new ApiTypeError("User ID not found while fetching notifications");
       }
       const notifications = await Notification_Model.find({
         recipient: userid,
       }).sort({ createdAt: -1 });
 
-      res.status(200).json({
-        message: "Notifications fetched successfully",
-        data: notifications,
-      });
+      return ApiResponse.success(
+        res,
+        notifications,
+        "Notifications fetched successfully"
+      );
     } catch (error) {
       console.log(error.message);
-      res.status(400).json({
-        message: "Error while fetching notifications",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Error while fetching notifications",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Error while fetching notifications",
+          500,
+          error.message
+        );
+      }
     }
   }
 
   static async makeNotiRead(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
       const { id } = req.params;
 
       if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new TypeError(
+        throw new ApiTypeError(
           "Notification Authorization failed : Invalid Notification ID format in params"
         );
       }
@@ -113,29 +136,40 @@ export class NewNotification {
       );
 
       if (res_noti.acknowledged) {
-        res.status(200).json({
-          message: "This Notification has been successfully read",
-          data: res_noti,
-        });
+        return ApiResponse.success(
+          res,
+          res_noti,
+          "This Notification has been successfully read"
+        );
       } else {
-        res.status(404).json({
-          message: "Notification not found or already updated",
-          data: res_noti,
-        });
+        throw new NotFoundError("Notification not found or already updated");
       }
     } catch (error) {
       console.log(error.message);
-      res.status(400).json({
-        message: "Notifications not updated successfully",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Notifications not updated successfully",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Notifications not updated successfully",
+          500,
+          error.message
+        );
+      }
     }
   }
 
   static async makeAllNotiRead(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
 
       const { user_id } = req.body;
@@ -151,29 +185,43 @@ export class NewNotification {
         { $set: { isRead: true } }
       );
 
-      res.status(200).json({
-        message: "All Notifications have been successfully read",
-        data: res_noti,
-      });
+      return ApiResponse.success(
+        res,
+        res_noti,
+        "All Notifications have been successfully read"
+      );
     } catch (error) {
       console.log(error.message);
-      res.status(400).json({
-        message: "All Notifications have not been successfully read",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "All Notifications have not been successfully read",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "All Notifications have not been successfully read",
+          500,
+          error.message
+        );
+      }
     }
   }
 
   static async deleteNoti(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
 
       const { id } = req.params;
 
       if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new TypeError(
+        throw new ApiTypeError(
           "Notification Authorization failed: Invalid Notification ID format in params"
         );
       }
@@ -181,37 +229,46 @@ export class NewNotification {
       // Get notification before deleting to use for SSE update
       const notification = await Notification_Model.findById(id);
       if (!notification) {
-        return res.status(404).json({
-          message: "Notification not found",
-        });
+        throw new NotFoundError("Notification not found");
       }
 
       const res_noti = await Notification_Model.deleteOne({ _id: id });
 
       if (res_noti.acknowledged) {
-        res.status(200).json({
-          message: "Notification has been successfully deleted",
-          data: res_noti,
-        });
+        return ApiResponse.success(
+          res,
+          res_noti,
+          "Notification has been successfully deleted"
+        );
       } else {
-        res.status(404).json({
-          message: "Notification not found or already deleted",
-          data: res_noti,
-        });
+        throw new NotFoundError("Notification not found or already deleted");
       }
     } catch (error) {
       console.log(error.message);
-      res.status(400).json({
-        message: "Notification deletion failed",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Notification deletion failed",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Notification deletion failed",
+          500,
+          error.message
+        );
+      }
     }
   }
 
   static async deleteAllNoti(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
 
       const { user_id } = req.body;
@@ -225,22 +282,33 @@ export class NewNotification {
       const res_all_noti = await Notification_Model.deleteMany({ recipient: user_id });
 
       if (res_all_noti.acknowledged) {
-        res.status(200).json({
-          message: "All Notifications are successfully deleted",
-          data: res_all_noti,
-        });
+        return ApiResponse.success(
+          res,
+          res_all_noti,
+          "All Notifications are successfully deleted"
+        );
       } else {
-        res.status(404).json({
-          message: "Notifications not found or already deleted",
-          data: res_all_noti,
-        });
+        throw new NotFoundError(
+          "Notifications not found or already deleted"
+        );
       }
     } catch (error) {
       console.log(error.message);
-      res.status(400).json({
-        message: "Notification deletion failed",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Notification deletion failed",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Notification deletion failed",
+          500,
+          error.message
+        );
+      }
     }
   }
 }

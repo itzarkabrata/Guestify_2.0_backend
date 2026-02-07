@@ -5,6 +5,13 @@ import { toBoolean } from "../server-utils/publicURLFetcher.js";
 import { EventObj } from "../lib/event.config.js";
 import { AMQP } from "../lib/amqp.connect.js";
 import { PgInfo_Model } from "../models/pginfo.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
+import {
+  ApiError,
+  TypeError as ApiTypeError,
+  InternalServerError,
+  NotFoundError,
+} from "../server-utils/ApiError.js";
 
 export class ownerClass {
   static async getOwnerContactDetails(req, res) {
@@ -21,24 +28,36 @@ export class ownerClass {
         });
 
         if (!contactDetails) {
-          return res.status(404).json({
-            message: "Contact details not found",
-          });
+          throw new NotFoundError("Contact details not found");
         }
 
-        res.status(200).json({
-          message: "Contact details retrieved successfully",
-          data: contactDetails,
-        });
+        return ApiResponse.success(
+          res,
+          contactDetails,
+          "Contact details retrieved successfully"
+        );
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.log(error.message);
-      res.status(500).json({
-        message: "Failed to retrieve contact details",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Failed to retrieve contact details",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Failed to retrieve contact details",
+          500,
+          error.message
+        );
+      }
     }
   }
 
@@ -163,9 +182,7 @@ export class ownerClass {
           );
 
         if (!updatedContactDetails) {
-          return res.status(404).json({
-            message: "Contact details not found",
-          });
+          throw new NotFoundError("Contact details not found");
         }
 
         //creating event
@@ -183,19 +200,31 @@ export class ownerClass {
         //publishing to amqp server
         AMQP.publishMsg("noti-queue", msg);
 
-        res.status(200).json({
-          message: "Contact details updated successfully",
-          data: updatedContactDetails,
-        });
+        return ApiResponse.success(
+          res,
+          updatedContactDetails,
+          "Contact details updated successfully"
+        );
       } else {
         throw new Error("Database server is not connected properly");
       }
     } catch (error) {
       console.log(error.message);
-      res.status(500).json({
-        message: "Failed to update contact details",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Failed to update contact details",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Failed to update contact details",
+          500,
+          error.message
+        );
+      }
     }
   }
 

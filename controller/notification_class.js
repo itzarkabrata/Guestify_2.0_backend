@@ -2,11 +2,18 @@ import { Database } from "../lib/connect.js";
 import mongoose from "mongoose";
 import { Notification_Model } from "../models/notification.js";
 import jwt from "jsonwebtoken";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
+import {
+  ApiError,
+  TypeError as ApiTypeError,
+  InternalServerError,
+  NotFoundError,
+} from "../server-utils/ApiError.js";
 
 export class Notification {
 
   static clients = new Map();
-  
+
   static async createNotification({
     notification_type,
     message,
@@ -162,7 +169,9 @@ export class Notification {
   static async getNotifications(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
 
       // Set headers for SSE
@@ -253,12 +262,14 @@ export class Notification {
   static async makeNotiRead(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
       const { id } = req.params;
 
       if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new TypeError(
+        throw new ApiTypeError(
           "Notification Authorization failed : Invalid Notification ID format in params"
         );
       }
@@ -272,23 +283,32 @@ export class Notification {
           Notification.sendSSENotificationUpdate(updatedNotification, 'updated');
         }
 
-        res.status(200).json({
-          message: "This Notification has been successfully read",
-          data: res_noti
-        })
+        return ApiResponse.success(
+          res,
+          res_noti,
+          "This Notification has been successfully read"
+        );
       } else {
-        res.status(404).json({
-          message: "Notification not found or already updated",
-          data: res_noti,
-        });
+        throw new NotFoundError("Notification not found or already updated");
       }
 
     } catch (error) {
       console.log(error.message);
-      res.status(400).json({
-        message: "Notifications not updated successfully",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Notifications not updated successfully",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Notifications not updated successfully",
+          500,
+          error.message
+        );
+      }
     }
   }
 
@@ -323,11 +343,11 @@ export class Notification {
             );
           }
 
-          res.status(200).json({
-            message: "All Notifications have been successfully read",
-            data: res_noti,
-          });
-          return;
+          return ApiResponse.success(
+            res,
+            res_noti,
+            "All Notifications have been successfully read"
+          );
         }
       }
 
@@ -339,7 +359,7 @@ export class Notification {
       const { user_id } = decoded_token;
 
       if (!mongoose.Types.ObjectId.isValid(user_id)) {
-        throw new TypeError(
+        throw new ApiTypeError(
           "User Authorization failed : Invalid User ID format in token"
         );
       }
@@ -362,29 +382,43 @@ export class Notification {
         );
       }
 
-      res.status(200).json({
-        message: "All Notifications have been successfully read",
-        data: res_noti,
-      });
+      return ApiResponse.success(
+        res,
+        res_noti,
+        "All Notifications have been successfully read"
+      );
     } catch (error) {
       console.log(error.message);
-      res.status(400).json({
-        message: "All Notifications have not been successfully read",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "All Notifications have not been successfully read",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "All Notifications have not been successfully read",
+          500,
+          error.message
+        );
+      }
     }
   }
 
   static async deleteNoti(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
 
       const { id } = req.params;
 
       if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new TypeError(
+        throw new ApiTypeError(
           "Notification Authorization failed: Invalid Notification ID format in params"
         );
       }
@@ -392,9 +426,7 @@ export class Notification {
       // Get notification before deleting to use for SSE update
       const notification = await Notification_Model.findById(id);
       if (!notification) {
-        return res.status(404).json({
-          message: "Notification not found",
-        });
+        throw new NotFoundError("Notification not found");
       }
 
       const res_noti = await Notification_Model.deleteOne({ _id: id });
@@ -403,22 +435,31 @@ export class Notification {
         // Send SSE notification update about deletion
         Notification.sendSSENotificationUpdate(notification, 'deleted');
 
-        res.status(200).json({
-          message: "Notification has been successfully deleted",
-          data: res_noti,
-        });
+        return ApiResponse.success(
+          res,
+          res_noti,
+          "Notification has been successfully deleted"
+        );
       } else {
-        res.status(404).json({
-          message: "Notification not found or already deleted",
-          data: res_noti,
-        });
+        throw new NotFoundError("Notification not found or already deleted");
       }
     } catch (error) {
       console.log(error.message);
-      res.status(400).json({
-        message: "Notification deletion failed",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Notification deletion failed",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Notification deletion failed",
+          500,
+          error.message
+        );
+      }
     }
 
   }
@@ -426,7 +467,9 @@ export class Notification {
   static async deleteAllNoti(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
 
       const auth_token = req.headers["authorization"];
@@ -446,7 +489,7 @@ export class Notification {
           const user_id = decoded_token.user_id;
 
           if (!mongoose.Types.ObjectId.isValid(user_id)) {
-            throw new TypeError("Invalid User ID format in token");
+            throw new ApiTypeError("Invalid User ID format in token");
           }
 
           // Get notifications before deleting to use for SSE update
@@ -473,22 +516,31 @@ export class Notification {
           Notification.sendSSENotificationUpdate(notificationInfo, 'all_deleted', notificationIds)
         }
 
-        res.status(200).json({
-          message: "All Notifications are successfully deleted",
-          data: res_all_noti,
-        });
+        return ApiResponse.success(
+          res,
+          res_all_noti,
+          "All Notifications are successfully deleted"
+        );
       } else {
-        res.status(404).json({
-          message: "Notifications not found or already deleted",
-          data: res_all_noti,
-        });
+        throw new NotFoundError("Notifications not found or already deleted");
       }
     } catch (error) {
       console.log(error.message);
-      res.status(400).json({
-        message: "Notification deletion failed",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Notification deletion failed",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Notification deletion failed",
+          500,
+          error.message
+        );
+      }
     }
   }
 }

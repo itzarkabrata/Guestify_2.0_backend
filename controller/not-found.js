@@ -1,12 +1,13 @@
-export async function Endpoint_notfound(_req,res) {
+import { NotFoundError } from "../server-utils/ApiError.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
+
+export async function Endpoint_notfound(_req, res) {
     try {
-        res.status(400).json({
-            message : "You have hitted a wrong url path"
-        })
+        throw new NotFoundError("You have hit a wrong url path");
     } catch (error) {
-        console.log(error.message);
-        res.status(400).json({
-            message : error.message
-        })
+        if (error instanceof NotFoundError) {
+            return ApiResponse.error(res, error.message, error.statusCode, error.message);
+        }
+        return ApiResponse.error(res, error.message, 404, error.message);
     }
 }

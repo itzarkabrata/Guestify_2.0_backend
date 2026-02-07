@@ -7,37 +7,45 @@ import { AMQP } from "../lib/amqp.connect.js";
 import { User_Model } from "../models/users.js";
 import { RoomInfo_Model } from "../models/roominfo.js";
 import { redisClient } from "../lib/redis.config.js";
-import { InternalServerError, NotFoundError } from "../server-utils/ApiError.js";
+import {
+  ApiError,
+  AuthorizationError,
+  EvalError,
+  InternalServerError,
+  NotFoundError,
+  TypeError,
+} from "../server-utils/ApiError.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
 
 export class Booking {
 
-  static async getBookingState(booking_id){
+  static async getBookingState(booking_id) {
     try {
       if (!(await Database.isConnected())) {
         throw new InternalServerError("Database server is not connected properly");
       }
-      if(!booking_id){
+      if (!booking_id) {
         throw new NotFoundError("Booking ID is required");
       }
       const booking_info = await Booking_Model.findById(booking_id);
 
-      if(!booking_info){
+      if (!booking_info) {
         throw new NotFoundError("No booking found for this id");
       }
 
-      if(booking_info?.revolked_by !== null){
+      if (booking_info?.revolked_by !== null) {
         return "revolked";
       }
-      else if(booking_info?.accepted_by !== null){
+      else if (booking_info?.accepted_by !== null) {
         return "accepted";
       }
-      else if(booking_info?.declined_by !== null){
+      else if (booking_info?.declined_by !== null) {
         return "declined";
       }
-      else if(booking_info?.canceled_by !== null){
+      else if (booking_info?.canceled_by !== null) {
         return "cancelled";
       }
-      else{
+      else {
         return "pending";
       }
     } catch (error) {
@@ -48,17 +56,15 @@ export class Booking {
   static async getAllRoomBookings(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError("Database server is not connected properly");
       }
 
       const { is_admin, id } = req.user;
 
       if (is_admin) {
-        return res
-          .status(403)
-          .json({
-            message: "Please Login with a user account to get the list",
-          });
+        throw new AuthorizationError(
+          "Please Login with a user account to get the list"
+        );
       }
 
       // Extract query params with defaults
@@ -150,19 +156,19 @@ export class Booking {
         // Filter by search (user name or address)
         ...(search
           ? [
-              {
-                $match: {
-                  $or: [
-                    {
-                      "pg_info.pg_name": {
-                        $regex: search,
-                        $options: "i",
-                      },
+            {
+              $match: {
+                $or: [
+                  {
+                    "pg_info.pg_name": {
+                      $regex: search,
+                      $options: "i",
                     },
-                  ],
-                },
+                  },
+                ],
               },
-            ]
+            },
+          ]
           : []),
 
         // Filter by status
@@ -219,9 +225,9 @@ export class Booking {
         });
       }
 
-      res.status(200).json({
-        message: "Bookings fetched successfully",
-        data: {
+      return ApiResponse.success(
+        res,
+        {
           total: totalCount,
           page,
           per_page: show,
@@ -230,20 +236,32 @@ export class Booking {
           search,
           bookings: bookings,
         },
-      });
+        "Bookings fetched successfully"
+      );
     } catch (error) {
       console.error("Fetching bookings failed:", error);
-      res.status(500).json({
-        message: "Failed to fetch bookings",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Failed to fetch bookings",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Failed to fetch bookings",
+          500,
+          error.message
+        );
+      }
     }
   }
 
   static async getAllBookings(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError("Database server is not connected properly");
       }
 
       // Extract query params with defaults
@@ -361,37 +379,37 @@ export class Booking {
         // Filter by search (user name or address)
         ...(search
           ? [
-              {
-                $match: {
-                  $or: [
-                    {
-                      "user_info.first_name": {
-                        $regex: search,
-                        $options: "i",
-                      },
+            {
+              $match: {
+                $or: [
+                  {
+                    "user_info.first_name": {
+                      $regex: search,
+                      $options: "i",
                     },
-                    {
-                      "user_info.last_name": {
-                        $regex: search,
-                        $options: "i",
-                      },
+                  },
+                  {
+                    "user_info.last_name": {
+                      $regex: search,
+                      $options: "i",
                     },
-                    {
-                      "user_info.address": {
-                        $regex: search,
-                        $options: "i",
-                      },
+                  },
+                  {
+                    "user_info.address": {
+                      $regex: search,
+                      $options: "i",
                     },
-                    {
-                      "pg_info.pg_name": {
-                        $regex: search,
-                        $options: "i",
-                      },
+                  },
+                  {
+                    "pg_info.pg_name": {
+                      $regex: search,
+                      $options: "i",
                     },
-                  ],
-                },
+                  },
+                ],
               },
-            ]
+            },
+          ]
           : []),
 
         // Filter by status
@@ -483,9 +501,9 @@ export class Booking {
         });
       }
 
-      res.status(200).json({
-        message: "Bookings fetched successfully",
-        data: {
+      return ApiResponse.success(
+        res,
+        {
           total: totalCount,
           page,
           per_page: show,
@@ -494,13 +512,25 @@ export class Booking {
           search,
           bookings: bookings,
         },
-      });
+        "Bookings fetched successfully"
+      );
     } catch (error) {
       console.error("Fetching bookings failed:", error);
-      res.status(500).json({
-        message: "Failed to fetch bookings",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Failed to fetch bookings",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Failed to fetch bookings",
+          500,
+          error.message
+        );
+      }
     }
   }
 
@@ -509,13 +539,11 @@ export class Booking {
     session.startTransaction();
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError("Database server is not connected properly");
       }
 
       if (req?.user?.is_admin) {
-        return res
-          .status(403)
-          .json({ message: "Admins are not allowed to create bookings" });
+        throw new AuthorizationError("Admins are not allowed to create bookings");
       }
 
       // Extract data from body
@@ -536,10 +564,9 @@ export class Booking {
       });
 
       if (existingBooking) {
-        return res.status(400).json({
-          message:
-            "You already have an active booking for this room. Please cancel, decline, or revolk the existing booking before creating a new one.",
-        });
+        throw new EvalError(
+          "You already have an active booking for this room. Please cancel, decline, or revolk the existing booking before creating a new one."
+        );
       }
 
       // Admin ID
@@ -566,38 +593,36 @@ export class Booking {
       const admin_id = result[0]?.admin_id;
 
       if (!room_id) {
-        return res.status(400).json({ message: "Room ID is required" });
+        throw new TypeError("Room ID is required");
       }
       if (!user_id) {
-        return res.status(400).json({ message: "User ID is required" });
+        throw new TypeError("User ID is required");
       }
       if (!admin_id) {
-        return res.status(400).json({ message: "Admin ID is required" });
+        throw new TypeError("Admin ID is required");
       }
       if (!start_date) {
-        return res.status(400).json({ message: "Start date is required" });
+        throw new TypeError("Start date is required");
       }
       if (!duration) {
-        return res.status(400).json({ message: "Duration is required" });
+        throw new TypeError("Duration is required");
       }
       if (!Array.isArray(persons)) {
-        return res.status(400).json({ message: "Persons must be an array" });
+        throw new TypeError("Persons must be an array");
       }
       if (persons.length === 0) {
-        return res
-          .status(400)
-          .json({ message: "Persons array cannot be empty" });
+        throw new TypeError("Persons array cannot be empty");
       }
 
       // Validate ObjectId format
       if (!mongoose.Types.ObjectId.isValid(room_id)) {
-        return res.status(400).json({ message: "Invalid Room ID format" });
+        throw new TypeError("Invalid Room ID format");
       }
       if (!mongoose.Types.ObjectId.isValid(user_id)) {
-        return res.status(400).json({ message: "Invalid User ID format" });
+        throw new TypeError("Invalid User ID format");
       }
       if (!mongoose.Types.ObjectId.isValid(admin_id)) {
-        return res.status(400).json({ message: "Invalid Admin ID format" });
+        throw new TypeError("Invalid Admin ID format");
       }
 
       const admin = await User_Model.findById({ _id: admin_id });
@@ -695,19 +720,32 @@ export class Booking {
       AMQP.publishEmail("email-queue", email_msg_user);
       AMQP.publishEmail("email-queue", email_msg_admin);
 
-      res.status(201).json({
-        message: "Booking created successfully",
-        data: booking,
-      });
+      return ApiResponse.success(
+        res,
+        booking,
+        "Booking created successfully",
+        201
+      );
     } catch (error) {
       session.abortTransaction();
       session.endSession();
 
       console.error("Booking creation failed:", error.message);
-      res.status(500).json({
-        message: "Failed to create booking",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Failed to create booking",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Failed to create booking",
+          500,
+          error.message
+        );
+      }
     }
   }
 
@@ -879,7 +917,7 @@ export class Booking {
       );
 
       if (!updatedBooking) {
-        return res.status(404).json({ message: "Booking not found" });
+        throw new NotFoundError("Booking not found");
       }
 
       // Reinitialize the RoomInfo to unset booked_by and booking_status
@@ -907,14 +945,12 @@ export class Booking {
     session.startTransaction();
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError("Database server is not connected properly");
       }
 
       const { is_admin, id } = req.user;
       if (!is_admin) {
-        return res
-          .status(403)
-          .json({ message: "Only admins can change booking status" });
+        throw new AuthorizationError("Only admins can change booking status");
       }
 
       const { book_id } = req.params;
@@ -922,7 +958,7 @@ export class Booking {
       const booking_info = await Booking_Model.findById(book_id);
 
       if (!booking_info) {
-        return res.status(404).json({ message: "Booking not found" });
+        throw new NotFoundError("Booking not found");
       }
 
       const { status, reason = "", payment_details = {} } = req.body;
@@ -931,11 +967,9 @@ export class Booking {
       const validStatus = ["accepted", "declined", "revolked"];
 
       if (!validStatus.includes(status)) {
-        return res.status(400).json({
-          message: `Invalid status value, value can be either ${validStatus.join(
-            " or "
-          )}`,
-        });
+        throw new TypeError(
+          `Invalid status value, value can be either ${validStatus.join(" or ")}`
+        );
       }
 
       let res_data = {};
@@ -974,34 +1008,44 @@ export class Booking {
       await session.commitTransaction();
       session.endSession();
 
-      res.status(200).json({
-        message: `Booking has been ${status} successfully`,
-        data: res_data,
-      });
+      return ApiResponse.success(
+        res,
+        res_data,
+        `Booking has been ${status} successfully`
+      );
     } catch (error) {
       session.abortTransaction();
       session.endSession();
 
       console.error("Booking status change failed:", error);
-      res.status(500).json({
-        message: "Failed to change booking status",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Failed to change booking status",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Failed to change booking status",
+          500,
+          error.message
+        );
+      }
     }
   }
 
   static async cancelBooking(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError("Database server is not connected properly");
       }
 
       const { is_admin, id } = req.user;
 
       if (is_admin) {
-        return res
-          .status(403)
-          .json({ message: "Admins are not allowed to cancel bookings" });
+        throw new AuthorizationError("Admins are not allowed to cancel bookings");
       }
 
       const { book_id } = req.params;
@@ -1010,7 +1054,7 @@ export class Booking {
       const booking_info = await Booking_Model.findById(book_id);
 
       if (!booking_info) {
-        return res.status(404).json({ message: "Booking not found" });
+        throw new NotFoundError("Booking not found");
       }
 
       if (
@@ -1019,9 +1063,7 @@ export class Booking {
         booking_info.declined_by ||
         booking_info.revolked_by
       ) {
-        return res.status(400).json({
-          message: "Only pending bookings can be canceled",
-        });
+        throw new EvalError("Only pending bookings can be canceled");
       }
 
       const { reason = "" } = req.body;
@@ -1037,59 +1079,83 @@ export class Booking {
       );
 
       if (!canceledBooking) {
-        return res.status(404).json({ message: "Booking not found" });
+        throw new NotFoundError("Booking not found");
       }
 
-      res.status(200).json({
-        message: "Booking has been canceled successfully",
-        data: canceledBooking,
-      });
+      return ApiResponse.success(
+        res,
+        canceledBooking,
+        "Booking has been canceled successfully"
+      );
     } catch (error) {
       console.error("Booking cancellation failed:", error);
-      res.status(500).json({
-        message: "Failed to cancel booking",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Failed to cancel booking",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Failed to cancel booking",
+          500,
+          error.message
+        );
+      }
     }
   }
 
   static async deleteBooking(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError("Database server is not connected properly");
       }
       const { book_id } = req.params;
       const deletedBooking = await Booking_Model.findByIdAndDelete(book_id);
       if (!deletedBooking) {
-        return res.status(404).json({ message: "Booking not found" });
+        throw new NotFoundError("Booking not found");
       }
-      res.status(200).json({
-        message: "Booking has been deleted successfully",
-        data: deletedBooking,
-      });
+      return ApiResponse.success(
+        res,
+        deletedBooking,
+        "Booking has been deleted successfully"
+      );
     } catch (error) {
       console.error("Booking deletion failed:", error);
-      res.status(500).json({
-        message: "Failed to delete booking",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Failed to delete booking",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Failed to delete booking",
+          500,
+          error.message
+        );
+      }
     }
   }
 
   static async getBookingDetails(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError("Database server is not connected properly");
       }
 
       const { booking_id } = req.params;
 
       if (!booking_id) {
-        return res.status(400).json({ message: "Booking ID is required" });
+        throw new TypeError("Booking ID is required");
       }
 
       if (!mongoose.Types.ObjectId.isValid(booking_id)) {
-        return res.status(400).json({ message: "Invalid Booking ID format" });
+        throw new TypeError("Invalid Booking ID format");
       }
 
       const bookingData = await Booking_Model.aggregate([
@@ -1110,19 +1176,31 @@ export class Booking {
       ]);
 
       if (!bookingData || bookingData.length === 0) {
-        return res.status(404).json({ message: "Booking not found" });
+        throw new NotFoundError("Booking not found");
       }
 
-      res.status(200).json({
-        message: "Booking Details Fetched Successfully",
-        data: bookingData[0],
-      });
+      return ApiResponse.success(
+        res,
+        bookingData[0],
+        "Booking Details Fetched Successfully"
+      );
     } catch (error) {
       console.error("Booking details fetch failed:", error);
-      res.status(500).json({
-        message: "Error Fetching Booking Details",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Error Fetching Booking Details",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Error Fetching Booking Details",
+          500,
+          error.message
+        );
+      }
     }
   }
 }

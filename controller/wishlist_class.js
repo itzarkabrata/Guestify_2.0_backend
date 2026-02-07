@@ -6,6 +6,12 @@ import mongoose from "mongoose";
 import { redisClient } from "../lib/redis.config.js";
 import { AMQP } from "../lib/amqp.connect.js";
 import { EventObj } from "../lib/event.config.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
+import {
+  ApiError,
+  EvalError,
+  InternalServerError,
+} from "../server-utils/ApiError.js";
 
 export class Wishlist_Class {
   static async addToWishlist(req, res) {
@@ -30,38 +36,46 @@ export class Wishlist_Class {
         // await redisClient.set(`pg-list-user-${userid}`, JSON.stringify(final_response), "EX", 180);
         const exists = await redisClient.sismember(`${userid}-wishlist`, pg_id);
 
-        if (exists){
-            throw new EvalError("Paying Guest is already in your wishlist");
+        if (exists) {
+          throw new EvalError("Paying Guest is already in your wishlist");
         }
 
         await redisClient.sadd(`${userid}-wishlist`, pg_id);
 
         AMQP.publishMsg("wishlist-queue", JSON.stringify(
-            EventObj.createWishlistEventObj(userid, pg_id, "create")
+          EventObj.createWishlistEventObj(userid, pg_id, "create")
         ));
-        
-        res.status(201).json({
-          message: "Paying Guest added to wishlist successfully",
-          data: {
+
+        return ApiResponse.success(
+          res,
+          {
             user_id: userid,
             pg_id: pg_id,
           },
-        });
+          "Paying Guest added to wishlist successfully",
+          201
+        );
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.error("Error adding to wishlist:", error);
-      if (error instanceof EvalError || error instanceof TypeError) {
-        res.status(400).json({
-          message: "Paying Guest is not able to add to wishlist",
-          error: error.message,
-        });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Paying Guest is not able to add to wishlist",
+          error.statusCode,
+          error.message
+        );
       } else {
-        res.status(500).json({
-          message: "Paying Guest is not able to add to wishlist",
-          error: error.message,
-        });
+        return ApiResponse.error(
+          res,
+          "Paying Guest is not able to add to wishlist",
+          500,
+          error.message
+        );
       }
     }
   }
@@ -81,34 +95,42 @@ export class Wishlist_Class {
 
         const exists = await redisClient.sismember(`${userid}-wishlist`, pg_id);
 
-        if (!exists){
-            throw new EvalError("Paying Guest is not in your wishlist");
+        if (!exists) {
+          throw new EvalError("Paying Guest is not in your wishlist");
         }
 
         await redisClient.srem(`${userid}-wishlist`, pg_id);
 
         AMQP.publishMsg("wishlist-queue", JSON.stringify(
-            EventObj.createWishlistEventObj(userid, pg_id, "delete")
+          EventObj.createWishlistEventObj(userid, pg_id, "delete")
         ));
 
-        res.status(200).json({
-          message: "Paying Guest removed from wishlist successfully",
-        });
+        return ApiResponse.success(
+          res,
+          null,
+          "Paying Guest removed from wishlist successfully"
+        );
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.error("Error removing from wishlist:", error);
-      if (error instanceof EvalError || error instanceof TypeError) {
-        res.status(400).json({
-          message: "Paying Guest is not able to remove from wishlist",
-          error: error.message,
-        });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Paying Guest is not able to remove from wishlist",
+          error.statusCode,
+          error.message
+        );
       } else {
-        res.status(500).json({
-          message: "Paying Guest is not able to remove from wishlist",
-          error: error.message,
-        });
+        return ApiResponse.error(
+          res,
+          "Paying Guest is not able to remove from wishlist",
+          500,
+          error.message
+        );
       }
     }
   }
@@ -181,25 +203,32 @@ export class Wishlist_Class {
 
         const wishlistItems = await Wishlist_Model.aggregate(pipeline);
 
-        res.status(200).json({
-          message: "User wishlist retrieved successfully",
-          data: wishlistItems,
-        });
+        return ApiResponse.success(
+          res,
+          wishlistItems,
+          "User wishlist retrieved successfully"
+        );
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
-      console.error("Error removing from wishlist:", error);
-      if (error instanceof EvalError || error instanceof TypeError) {
-        res.status(400).json({
-          message: "Paying Guest is not able to remove from wishlist",
-          error: error.message,
-        });
+      console.error("Error retrieving wishlist:", error);
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "User wishlist not retrieved successfully",
+          error.statusCode,
+          error.message
+        );
       } else {
-        res.status(500).json({
-          message: "Paying Guest is not able to remove from wishlist",
-          error: error.message,
-        });
+        return ApiResponse.error(
+          res,
+          "User wishlist not retrieved successfully",
+          500,
+          error.message
+        );
       }
     }
   }

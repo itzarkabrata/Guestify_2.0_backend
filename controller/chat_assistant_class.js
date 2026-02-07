@@ -3,6 +3,13 @@ import { getChatContext, pushChat } from "../server-utils/chatRedis.js";
 import { rateLimit } from "../server-utils/rateLimiter.js";
 import { callLLM } from "../services/llm_service.js";
 import { searchKnowledge } from "../services/vectorSearch_service.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
+import {
+  ApiError,
+  TypeError as ApiTypeError,
+  InternalServerError,
+  NotFoundError,
+} from "../server-utils/ApiError.js";
 
 export class ChatAssistant {
   static async chat(req, res) {
@@ -14,7 +21,7 @@ export class ChatAssistant {
       // VALIDATION
       // =========================
       if (!message || !sessionId) {
-        throw new Error("message and sessionId are required");
+        throw new ApiTypeError("message and sessionId are required");
       }
 
       // =========================
@@ -27,9 +34,11 @@ export class ChatAssistant {
       );
 
       if (isRateLimited) {
-        return res.status(429).json({
-          message: "Too many requests. Please try again later.",
-        });
+        return ApiResponse.error(
+          res,
+          "Too many requests. Please try again later.",
+          429
+        );
       }
 
       // =========================
@@ -55,13 +64,14 @@ export class ChatAssistant {
         .map((k) => k.content);
 
       if (trustedKnowledge.length === 0) {
-        return res.status(200).json({
-          message: "Assistant response generated successfully",
-          data: {
+        return ApiResponse.success(
+          res,
+          {
             reply:
               "I don’t have that information based on the available website content. Please visit the Contact Us section to reach the administrators for further assistance.",
           },
-        });
+          "Assistant response generated successfully"
+        );
       }
 
       const hasReliableKnowledge = trustedKnowledge.length > 0;
@@ -153,24 +163,36 @@ Respond ONLY with this message:
         },
       ]);
 
-      return res.status(200).json({
-        message: "Assistant response generated successfully",
-        data: {
+      return ApiResponse.success(
+        res,
+        {
           reply: assistantReply,
         },
-      });
+        "Assistant response generated successfully"
+      );
     } catch (error) {
       console.error(error.message);
-      const statusCode =
-        error instanceof TypeError ||
-          error instanceof EvalError ||
-          error instanceof ReferenceError
-          ? 400
-          : 500;
-      return res.status(statusCode).json({
-        message: "Chat assistant failed",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Chat assistant failed",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        const statusCode =
+          error instanceof TypeError ||
+            error instanceof EvalError ||
+            error instanceof ReferenceError
+            ? 400
+            : 500;
+        return ApiResponse.error(
+          res,
+          "Chat assistant failed",
+          statusCode,
+          error.message
+        );
+      }
     }
   }
 }
