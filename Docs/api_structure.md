@@ -578,6 +578,30 @@ ApiResponse.error(
 
 ---
 
+## Database Connection Management
+
+The file [`lib/connect.js`](file:///C:/Arkabrata%20Chandra%20Personal%20Projects/Website/guestify_v2_backend/lib/connect.js) exports a `Database` class that manages the MongoDB connection. This handles the initial connection and provides a method to check connection status.
+
+### `Database.createMongoConnection()`
+- **Purpose**: Establishes the initial connection to MongoDB using `mongoose.connect`.
+- **Configuration**: Uses `MONGO_URI` from environment variables and sets a 25-second server selection timeout.
+- **Usage**: Typically called during server startup.
+
+### `Database.isConnected()`
+- **Purpose**: Returns a boolean indicating if the database connection state is `connected` (readyState === 1).
+- **Usage Pattern**: This method is critically used at the start of almost every controller method to ensure the DB is reachable before proceeding. If it returns false, an `InternalServerError` is thrown.
+
+```javascript
+// Example Usage
+if (await Database.isConnected()) {
+  // Proceed with operations
+} else {
+  throw new InternalServerError("Database server is not connected properly");
+}
+```
+
+---
+
 ## Common API Patterns in Guestify 2.0
 
 Based on the [`user_class.js`](file:///C:/Arkabrata%20Chandra%20Personal%20Projects/Website/guestify_v2_backend/controller/user_class.js) controller, here are common patterns:
