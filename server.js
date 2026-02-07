@@ -51,7 +51,8 @@ app.use(
       "http://localhost:3001",
       "http://localhost:3000",
       "https://guestify-2-0.vercel.app",
-      "https://dev-guestify-2-0.vercel.app"
+      "https://dev-guestify-2-0.vercel.app",
+      "https://guestify.techapp.in"
     ],
     methods: "GET,POST,PUT,DELETE,PATCH",
     credentials: true,
