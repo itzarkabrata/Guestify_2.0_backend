@@ -324,7 +324,8 @@ static async RegisterUser(req, res) {
     return ApiResponse.success(
       res,
       null,
-      "User registered successfully, Please Login with the email-id and password"
+      "User registered successfully, Please Login with the email-id and password",
+      201
     );
   } catch (error) {
     // Error handling in Example 2
@@ -577,6 +578,30 @@ ApiResponse.error(
 
 ---
 
+## Database Connection Management
+
+The file [`lib/connect.js`](file:///C:/Arkabrata%20Chandra%20Personal%20Projects/Website/guestify_v2_backend/lib/connect.js) exports a `Database` class that manages the MongoDB connection. This handles the initial connection and provides a method to check connection status.
+
+### `Database.createMongoConnection()`
+- **Purpose**: Establishes the initial connection to MongoDB using `mongoose.connect`.
+- **Configuration**: Uses `MONGO_URI` from environment variables and sets a 25-second server selection timeout.
+- **Usage**: Typically called during server startup.
+
+### `Database.isConnected()`
+- **Purpose**: Returns a boolean indicating if the database connection state is `connected` (readyState === 1).
+- **Usage Pattern**: This method is critically used at the start of almost every controller method to ensure the DB is reachable before proceeding. If it returns false, an `InternalServerError` is thrown.
+
+```javascript
+// Example Usage
+if (await Database.isConnected()) {
+  // Proceed with operations
+} else {
+  throw new InternalServerError("Database server is not connected properly");
+}
+```
+
+---
+
 ## Common API Patterns in Guestify 2.0
 
 Based on the [`user_class.js`](file:///C:/Arkabrata%20Chandra%20Personal%20Projects/Website/guestify_v2_backend/controller/user_class.js) controller, here are common patterns:
@@ -635,6 +660,32 @@ const user = await User_Model.find({ email: email });
 
 if (user.length === 0) {
   throw new NotFoundError("User with given email-id not exists");
+}
+```
+
+### Pattern 5: Database Transactions
+
+When using MongoDB transactions, ensure you abort the transaction in the catch block before throwing the error.
+
+```javascript
+const session = await mongoose.startSession();
+session.startTransaction();
+try {
+  // ... operations ...
+  
+  await session.commitTransaction();
+  session.endSession();
+  
+  return ApiResponse.success(res, data, "Success", 201);
+} catch (error) {
+  session.abortTransaction();
+  session.endSession();
+  
+  // Error handling
+  if (error instanceof ApiError) {
+    return ApiResponse.error(res, "Failed", error.statusCode, error.message);
+  }
+  return ApiResponse.error(res, "Failed", 500, error.message);
 }
 ```
 
