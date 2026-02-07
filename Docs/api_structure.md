@@ -324,7 +324,8 @@ static async RegisterUser(req, res) {
     return ApiResponse.success(
       res,
       null,
-      "User registered successfully, Please Login with the email-id and password"
+      "User registered successfully, Please Login with the email-id and password",
+      201
     );
   } catch (error) {
     // Error handling in Example 2
@@ -635,6 +636,32 @@ const user = await User_Model.find({ email: email });
 
 if (user.length === 0) {
   throw new NotFoundError("User with given email-id not exists");
+}
+```
+
+### Pattern 5: Database Transactions
+
+When using MongoDB transactions, ensure you abort the transaction in the catch block before throwing the error.
+
+```javascript
+const session = await mongoose.startSession();
+session.startTransaction();
+try {
+  // ... operations ...
+  
+  await session.commitTransaction();
+  session.endSession();
+  
+  return ApiResponse.success(res, data, "Success", 201);
+} catch (error) {
+  session.abortTransaction();
+  session.endSession();
+  
+  // Error handling
+  if (error instanceof ApiError) {
+    return ApiResponse.error(res, "Failed", error.statusCode, error.message);
+  }
+  return ApiResponse.error(res, "Failed", 500, error.message);
 }
 ```
 
