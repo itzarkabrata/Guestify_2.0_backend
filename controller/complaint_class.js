@@ -2,7 +2,7 @@ import { ApiResponse } from "../server-utils/ApiResponse.js";
 import {
   ApiError,
   AuthorizationError,
-  EvaluationError,
+  EvalError,
   InternalServerError,
   NotFoundError,
   TypeError,
@@ -14,6 +14,7 @@ import { Booking_Model } from "../models/booking.js";
 import { PgInfo_Model } from "../models/pginfo.js";
 import { AMQP } from "../lib/amqp.connect.js";
 import { EventObj } from "../lib/event.config.js";
+import { RoomInfo_Model } from "../models/roominfo.js";
 
 export class ComplaintClass {
   static async createComplaint(req, res) {
@@ -32,7 +33,6 @@ export class ComplaintClass {
 
       const {
         room_id,
-        pg_id,
         subject,
         description,
         complaint_type,
@@ -42,17 +42,20 @@ export class ComplaintClass {
       } = req.body;
 
       // Validate required fields
-      if (!room_id || !pg_id || !subject || !description) {
-        throw new EvaluationError("Missing required fields for a complaint.");
+      if (!room_id || !subject || !description) {
+        throw new EvalError("Missing required fields for a complaint.");
       }
 
-      const user_id = req.user._id;
+      const user_id = req.user.id;
 
       // Check if user has an active/past booking for this room in this PG
       const existingBooking = await Booking_Model.findOne({
         user_id: user_id,
         room_id: room_id,
+        accepted_at: { $ne: null }, // Ensure the booking was accepted
+        payment_at: { $ne: null }, // Ensure the booking was paid for 
         canceled_at: null, // Ensure the booking wasn't cancelled
+        revolked_at: null, // Ensure the booking wasn't revolked
       });
 
       if (!existingBooking) {
@@ -60,6 +63,13 @@ export class ComplaintClass {
           "You can only log a complaint for a room you have accommodated."
         );
       }
+
+      // Getting pg_id from room_id
+      const roomInfo = await RoomInfo_Model.findById(room_id).select("pg_id");
+      if (!roomInfo) {
+        throw new NotFoundError("Room not found.");
+      }
+      const pg_id = roomInfo.pg_id; // Getting pg_id from room_id
 
       // Create new complaint
       const newComplaint = new Complaint_Model({
@@ -116,7 +126,7 @@ export class ComplaintClass {
         );
       }
 
-      const user_id = req.user._id;
+      const user_id = req.user.id;
       const is_admin = req.user.is_admin;
 
       let matchQuery = {};
@@ -137,10 +147,14 @@ export class ComplaintClass {
 
       // Read filter/sort query params if provided
       if (req.query.status) {
-        matchQuery.status = req.query.status;
+        // Support comma-separated values for multiple statuses
+        const statuses = req.query.status.split(",");
+        matchQuery.status = { $in: statuses };
       }
       if (req.query.priority) {
-        matchQuery.priority = req.query.priority;
+        // Support comma-separated values for multiple priorities
+        const priorities = req.query.priority.split(",");
+        matchQuery.priority = { $in: priorities };
       }
 
       complaints = await Complaint_Model.find(matchQuery)
@@ -177,7 +191,7 @@ export class ComplaintClass {
         throw new NotFoundError("Complaint not found.");
       }
 
-      const user_id = req.user._id;
+      const user_id = req.user.id;
       const is_admin = req.user.is_admin;
 
       if (is_admin) {
@@ -255,13 +269,13 @@ export class ComplaintClass {
       }
 
       // Verify admin owns the PG
-      const adminPgs = await PgInfo_Model.find({ user_id: req.user._id }).select("_id");
+      const adminPgs = await PgInfo_Model.find({ user_id: req.user.id }).select("_id");
       const adminPgIds = adminPgs.map((pg) => pg._id.toString());
-      
+
       if (!adminPgIds.includes(complaint.pg_id.toString())) {
-          throw new AuthorizationError(
-            "You do not have permission to update a complaint for this PG."
-          );
+        throw new AuthorizationError(
+          "You do not have permission to update a complaint for this PG."
+        );
       }
 
       const { status, resolution_details } = req.body;
@@ -273,7 +287,7 @@ export class ComplaintClass {
       const previousStatus = complaint.status;
       complaint.status = status;
       if (resolution_details !== undefined) {
-          complaint.resolution_details = resolution_details;
+        complaint.resolution_details = resolution_details;
       }
 
       if (status === "resolved" || status === "closed") {
@@ -328,7 +342,7 @@ export class ComplaintClass {
         throw new NotFoundError("Complaint not found.");
       }
 
-      const user_id = req.user._id;
+      const user_id = req.user.id;
       const is_admin = req.user.is_admin;
 
       if (!is_admin) {
@@ -345,13 +359,13 @@ export class ComplaintClass {
           );
         }
       } else {
-         // Optionally restrict Admin from deleting or verify admin pg_id matches
-         const adminPgs = await PgInfo_Model.find({ user_id: user_id }).select("_id");
-         const adminPgIds = adminPgs.map(pg => pg._id.toString());
-         
-         if (!adminPgIds.includes(complaint.pg_id.toString())) {
-             throw new AuthorizationError("You do not have permission to delete a complaint for this PG.");
-         }
+        // Optionally restrict Admin from deleting or verify admin pg_id matches
+        const adminPgs = await PgInfo_Model.find({ user_id: user_id }).select("_id");
+        const adminPgIds = adminPgs.map(pg => pg._id.toString());
+
+        if (!adminPgIds.includes(complaint.pg_id.toString())) {
+          throw new AuthorizationError("You do not have permission to delete a complaint for this PG.");
+        }
       }
 
       await Complaint_Model.findByIdAndDelete(complaintId);

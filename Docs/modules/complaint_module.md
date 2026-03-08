@@ -85,8 +85,8 @@ Returns the created complaint object. Also triggers an AMQP Notification to the 
 - **If Admin:** Returns all complaints logged against any `PgInfo` owned by the requesting Admin.
 
 #### Query Parameters (Optional Filters)
-- `?status=pending`
-- `?priority=high`
+- `?status=pending,in_progress` (Supports single or comma-separated multiple values)
+- `?priority=high,urgent` (Supports single or comma-separated multiple values)
 
 #### Success Response (200 OK)
 Returns an array of Complaints populated with reference details (`user_id`, `room_id`, `pg_id`).
