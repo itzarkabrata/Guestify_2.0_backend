@@ -31,6 +31,7 @@ import { attraction_router } from "./routes/local_attraction_route.js";
 import { extension_router } from "./routes/extension_route.js";
 import { llm_route } from "./LLM/route.js";
 import { uptime_router } from "./routes/special/uptime_route.js";
+import { complaint_route } from "./routes/complaint_routes.js";
 
 // Import CRON JOB Workers
 import { CronManager } from "./cron-job-worker/index.js";
@@ -116,6 +117,8 @@ app.use("/backend", extension_router);
 app.use("/backend", llm_route);
 
 app.use("/backend", chat_assistant_router);
+
+app.use("/backend/complaint", complaint_route);
 
 //response for Undeclared api endpoint
 app.use(Endpoint_notfound);
