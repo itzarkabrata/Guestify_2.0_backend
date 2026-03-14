@@ -23,7 +23,13 @@ const UsersSchema = new Schema(
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
+      required: false, // Optional — OAuth users (e.g. Google) have no password
+      default: null,
+    },
+    oauth_provider: {
+      type: String,
+      enum: ["google"],
+      default: null,
     },
     mother_tongue: {
       type: String,
@@ -52,7 +58,7 @@ const UsersSchema = new Schema(
       type: Number,
       validate: {
         validator: (value) => {
-          return (value===null || /^\d{6}$/.test(value?.toString())) ? true : false
+          return (value === null || /^\d{6}$/.test(value?.toString())) ? true : false
         },
         message: "Pincode must be exactly 6 digits",
       },

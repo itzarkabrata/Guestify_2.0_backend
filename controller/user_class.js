@@ -158,8 +158,7 @@ export class User {
         return ApiResponse.success(
           res,
           null,
-          `${
-            is_admin ? "Admin" : "User"
+          `${is_admin ? "Admin" : "User"
           } registered successfully , Please Login with the email-id and password`
         );
       } else {
@@ -225,6 +224,13 @@ export class User {
         );
 
         if (res_user.length !== 0) {
+          // Block email/password login for Google OAuth accounts
+          if (res_user[0].oauth_provider === "google") {
+            throw new EvalError(
+              "This account was registered with Google Sign-In. Please use the 'Login with Google' option."
+            );
+          }
+
           const hash_pass = res_user[0].password;
 
           if (await bcrypt.compare(password, hash_pass)) {
@@ -281,8 +287,7 @@ export class User {
                 user_id: res_user[0]._id,
                 is_admin: res_user[0].is_admin,
               },
-              `${
-                res_user[0].is_admin ? "Admin" : "User"
+              `${res_user[0].is_admin ? "Admin" : "User"
               } Logged in successfully`
             );
           } else {
@@ -713,5 +718,80 @@ export class User {
         );
       }
     }
+  }
+
+  /**
+   * Called by passport after a successful Google OAuth verification.
+   * req.user is populated by passport with the DB user document.
+   * Issues a JWT (same as loginUser) and redirects to the frontend.
+   */
+  static async googleOAuthCallback(req, res) {
+    try {
+      const user = req.user;
+
+      if (!user) {
+        throw new AuthorizationError("Google OAuth failed: no user profile returned");
+      }
+
+      const token_obj = {
+        user_id: user._id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        image_url: user.image_url,
+        is_admin: user.is_admin,
+      };
+
+      const token = await jwt.sign(token_obj, process.env.JWT_SECRET_KEY, {
+        expiresIn: "2h",
+        notBefore: "2s",
+      });
+
+      // Set auth cookie (identical to loginUser)
+      res.cookie("authToken", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== "development",
+        sameSite: "None",
+        domain:
+          process.env.NODE_ENV === "development" ? undefined : ".vercel.app",
+        path: "/",
+        maxAge: 2 * 60 * 60 * 1000,
+      });
+
+      // Publish login event to notification queue
+      const msg = JSON.stringify(
+        EventObj.createEventObj(
+          "transactional",
+          "Logged in via Google OAuth",
+          false,
+          "success",
+          user._id,
+          req.headers["devicetoken"]
+        )
+      );
+      AMQP.publishMsg("noti-queue", msg);
+
+      // Redirect to frontend with token info as query params
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3002";
+      return res.redirect(
+        `${frontendUrl}/oauth-callback?token=${token}&user_id=${user._id}&is_admin=${user.is_admin}`
+      );
+    } catch (error) {
+      console.error("Google OAuth Callback Error:", error.message);
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3002";
+      return res.redirect(`${frontendUrl}/login?error=oauth_failed`);
+    }
+  }
+
+  /**
+   * Called when passport Google OAuth fails (e.g. user denied access).
+   */
+  static googleOAuthFailure(_req, res) {
+    return ApiResponse.error(
+      res,
+      "Google OAuth Login Failed",
+      401,
+      "Authentication with Google was unsuccessful. Please try again."
+    );
   }
 }
