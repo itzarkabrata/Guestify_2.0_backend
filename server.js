@@ -11,7 +11,7 @@ import { review_router } from "./routes/review_route.js";
 import { user_profile_router } from "./routes/user_profile_route.js";
 import path from "path";
 import { fileURLToPath } from "url";
-import { app , server } from "./server-utils/instances.js";
+import { app, server } from "./server-utils/instances.js";
 import { AMQP } from "./lib/amqp.connect.js";
 import { notification_router } from "./routes/notification_route.js";
 import { room_router } from "./routes/room_route.js";
@@ -32,6 +32,7 @@ import { extension_router } from "./routes/extension_route.js";
 import { llm_route } from "./LLM/route.js";
 import { uptime_router } from "./routes/special/uptime_route.js";
 import { complaint_route } from "./routes/complaint_routes.js";
+import passport from "./lib/passport.config.js";
 
 // Import CRON JOB Workers
 import { CronManager } from "./cron-job-worker/index.js";
@@ -68,6 +69,7 @@ app.use("/backend/stripe/webhook", express.raw({ type: "application/json" }), we
 app.use(express.json());
 app.use(cookieParser());
 app.use(compression());
+app.use(passport.initialize()); // Google OAuth via passport
 
 // app.get("/", (req, res) => {
 //   res.sendFile(path.join(__dirname, "index.html"));
@@ -126,9 +128,9 @@ app.use(Endpoint_notfound);
 server.listen(port_number, async () => {
   try {
     await Database.createMongoConnection();
-    
+
     await AMQP.establishConn("noti-queue");
-    
+
     console.log(`Server started at port number ${port_number}`);
     console.log(`Type of deployment : ${process.env.NODE_ENV}`);
     console.log('Server-Sent Events enabled for notifications');
@@ -150,7 +152,7 @@ server.listen(port_number, async () => {
 
     // start Cron
     await CronManager.startAll();
-    
+
   } catch (err) {
     console.log(err.message);
   }
