@@ -1,6 +1,12 @@
 import mongoose from "mongoose";
 import { Database } from "../lib/connect.js";
 import { Review_Model } from "../models/reviews.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
+import {
+  ApiError,
+  TypeError as ApiTypeError,
+  InternalServerError,
+} from "../server-utils/ApiError.js";
 
 export class Review {
   static async getReviews(req, res) {
@@ -12,10 +18,9 @@ export class Review {
         });
 
         console.log(reviews);
-        res.status(200).json({
-          success: true,
-          message: "Reviews fetched successfully",
-          data: reviews.map(
+        return ApiResponse.success(
+          res,
+          reviews.map(
             ({ _id, full_name, feedback, review_image_url, rating }) => ({
               _id,
               full_name,
@@ -24,23 +29,29 @@ export class Review {
               rating,
             })
           ),
-        });
+          "Reviews fetched successfully"
+        );
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: "Reviews are not fetched successfully",
-        error: error.message,
-      });
+      return ApiResponse.error(
+        res,
+        "Reviews are not fetched successfully",
+        500,
+        error.message
+      );
     }
   }
 
   static async addReview(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
 
       const reviewFile =
@@ -78,9 +89,11 @@ export class Review {
 
         await existingReview.save();
 
-        return res
-          .status(200)
-          .json({ success: true, message: "Review updated successfully" });
+        return ApiResponse.success(
+          res,
+          null,
+          "Review updated successfully"
+        );
       }
 
       const review = new Review_Model({
@@ -93,11 +106,14 @@ export class Review {
       });
 
       await review.save();
-      res
-        .status(201)
-        .json({ success: true, message: "Review created successfully" });
+      return ApiResponse.success(
+        res,
+        null,
+        "Review created successfully",
+        201
+      );
     } catch (error) {
-      res.status(500).json({ success: false, message: "Server Error", error });
+      return ApiResponse.error(res, "Server Error", 500, error.message);
     }
   }
 

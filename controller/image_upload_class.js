@@ -2,6 +2,13 @@
 // import { Image_Model } from "../models/image_upload.js";
 import cloudinary from "../lib/assetstorage_config.js";
 // import { Database } from "../lib/connect.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
+import {
+    ApiError,
+    TypeError as ApiTypeError,
+    InternalServerError,
+    NotFoundError,
+} from "../server-utils/ApiError.js";
 
 export class ImageUpload {
     static async saveImage(req, res) {
@@ -14,7 +21,7 @@ export class ImageUpload {
             // }
 
             if (!req.files || req.files.length === 0) {
-                throw new Error("No image files uploaded");
+                throw new ApiTypeError("No image files uploaded");
             }
 
             console.log("Uploaded files:", req.files);
@@ -22,7 +29,7 @@ export class ImageUpload {
             const imageFiles = req.files.filter((f) => f.fieldname.includes("image_url"));
 
             if (imageFiles.length === 0) {
-                throw new Error("No valid PG/ROOM image files found");
+                throw new ApiTypeError("No valid PG/ROOM image files found");
             }
 
             const formattedImage = imageFiles.map((file) => ({
@@ -38,30 +45,42 @@ export class ImageUpload {
             // await session.commitTransaction();
             // session.endSession();
 
-            return res.status(200).json({
-                message: "Images uploaded successfully",
-                data: {
-                    url : formattedImage[0].image_url,
-                    public_id : formattedImage[0].public_id
+            return ApiResponse.success(
+                res,
+                {
+                    url: formattedImage[0].image_url,
+                    public_id: formattedImage[0].public_id
                 },
-            });
+                "Images uploaded successfully"
+            );
         } catch (error) {
             // await session.abortTransaction();
             // session.endSession();
 
             console.error(error.message);
 
-            const statusCode =
-                error instanceof TypeError ||
-                    error instanceof EvalError ||
-                    error instanceof ReferenceError
-                    ? 400
-                    : 500;
+            if (error instanceof ApiError) {
+                return ApiResponse.error(
+                    res,
+                    "Image upload failed, transaction rolled back",
+                    error.statusCode,
+                    error.message
+                );
+            } else {
+                const statusCode =
+                    error instanceof TypeError ||
+                        error instanceof EvalError ||
+                        error instanceof ReferenceError
+                        ? 400
+                        : 500;
 
-            res.status(statusCode).json({
-                message: "Image upload failed, transaction rolled back",
-                error: error.message,
-            });
+                return ApiResponse.error(
+                    res,
+                    "Image upload failed, transaction rolled back",
+                    statusCode,
+                    error.message
+                );
+            }
         }
     }
 
@@ -80,62 +99,86 @@ export class ImageUpload {
 
             if (!public_id) {
                 console.log("Public ID is missing in the request body");
-                throw new Error("public_id is required");
+                throw new ApiTypeError("public_id is required");
             }
 
             // Delete from Cloudinary
             const cloudinaryResult = await cloudinary.uploader.destroy(public_id);
 
             if (cloudinaryResult.result !== "ok" && cloudinaryResult.result !== "not found") {
-                throw new Error("Failed to delete image from Cloudinary");
+                throw new InternalServerError("Failed to delete image from Cloudinary");
             }
 
-            return res.status(200).json({
-                message: "Image deleted successfully",
+            return ApiResponse.success(
+                res,
                 public_id,
-            });
+                "Image deleted successfully"
+            );
         } catch (error) {
             console.error(error.message);
 
-            const statusCode =
-                error instanceof TypeError ||
-                    error instanceof EvalError ||
-                    error instanceof ReferenceError
-                    ? 400
-                    : 500;
+            if (error instanceof ApiError) {
+                return ApiResponse.error(
+                    res,
+                    "Image deletion failed",
+                    error.statusCode,
+                    error.message
+                );
+            } else {
+                const statusCode =
+                    error instanceof TypeError ||
+                        error instanceof EvalError ||
+                        error instanceof ReferenceError
+                        ? 400
+                        : 500;
 
-            res.status(statusCode).json({
-                message: "Image deletion failed",
-                error: error.message,
-            });
+                return ApiResponse.error(
+                    res,
+                    "Image deletion failed",
+                    statusCode,
+                    error.message
+                );
+            }
         }
     }
 
-    static async deleteBulkImages(req , res) {
+    static async deleteBulkImages(req, res) {
         try {
 
             const { public_ids } = req.body;
             if (!public_ids || !Array.isArray(public_ids) || public_ids.length === 0) {
-                throw new Error("public_ids array is required");
+                throw new ApiTypeError("public_ids array is required");
             }
             const cloudinaryResult = await cloudinary.api.delete_resources(public_ids);
 
-            return res.status(200).json({
-                message: "Bulk images deleted successfully",
-                result: cloudinaryResult,
-            });
+            return ApiResponse.success(
+                res,
+                cloudinaryResult,
+                "Bulk images deleted successfully"
+            );
         } catch (error) {
             console.error(error.message);
-            const statusCode =
-                error instanceof TypeError ||
-                    error instanceof EvalError ||
-                    error instanceof ReferenceError
-                    ? 400
-                    : 500;
-            res.status(statusCode).json({
-                message: "Bulk image deletion failed",
-                error: error.message,
-            });
+            if (error instanceof ApiError) {
+                return ApiResponse.error(
+                    res,
+                    "Bulk image deletion failed",
+                    error.statusCode,
+                    error.message
+                );
+            } else {
+                const statusCode =
+                    error instanceof TypeError ||
+                        error instanceof EvalError ||
+                        error instanceof ReferenceError
+                        ? 400
+                        : 500;
+                return ApiResponse.error(
+                    res,
+                    "Bulk image deletion failed",
+                    statusCode,
+                    error.message
+                );
+            }
         }
     }
 }

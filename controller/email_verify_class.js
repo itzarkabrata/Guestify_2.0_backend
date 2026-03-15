@@ -2,6 +2,13 @@ import { Database } from "../lib/connect.js";
 import { Nodemailer } from "../lib/email/email.config.js";
 import { redisClient } from "../lib/redis.config.js";
 import { generateOTP } from "../server-utils/cryptoFunc.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
+import {
+  ApiError,
+  TypeError as ApiTypeError,
+  InternalServerError,
+  NotFoundError,
+} from "../server-utils/ApiError.js";
 
 export class emailVerifyClass {
   static async sendVerificationCode(req, res) {
@@ -9,22 +16,23 @@ export class emailVerifyClass {
       if (await Database.isConnected()) {
         const { email, owner_name } = req.body;
         if (!email) {
-          throw new Error("Email is required");
+          throw new ApiTypeError("Email is required");
         }
         if (!owner_name) {
-          throw new Error("Owner name is required");
+          throw new ApiTypeError("Owner name is required");
         }
 
         // for testing purposes, bypass OTP verification
         if (process.env.EMAIL_OTP_BYPASS === "true") {
-          return res.status(200).json({
-            message: "Email OTP bypassed for testing",
-            data: {
+          return ApiResponse.success(
+            res,
+            {
               email: email,
               owner_name: owner_name,
               bypassed: true,
             },
-          });
+            "Email OTP bypassed for testing"
+          );
         }
 
         const otp = generateOTP();
@@ -44,26 +52,40 @@ export class emailVerifyClass {
         );
 
         if (!info.success) {
-          throw new Error(info.message);
+          throw new InternalServerError(info.message);
         }
 
-        res.status(200).json({
-          message: "Verification code sent successfully",
-          data:{
+        return ApiResponse.success(
+          res,
+          {
             bypassed: false,
             from: info.from,
             to: info.to ?? '',
-          }
-        });
+          },
+          "Verification code sent successfully"
+        );
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.log(error.message);
-      res.status(500).json({
-        message: "Failed to send verification code to email",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Failed to send verification code to email",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Failed to send verification code to email",
+          500,
+          error.message
+        );
+      }
     }
   }
 
@@ -72,39 +94,55 @@ export class emailVerifyClass {
       if (await Database.isConnected()) {
         const { email, code } = req.body;
         if (!email || !code) {
-          throw new Error("Email and code are required");
+          throw new ApiTypeError("Email and code are required");
         }
         if (!/^\d{6}$/.test(code)) {
-          throw new Error(
+          throw new ApiTypeError(
             "Invalid code format. It should be a 6-digit number."
           );
         }
 
         const storedCode = await redisClient.get(`email_verification:${email}`);
         if (!storedCode) {
-          throw new Error("Verification code has expired or does not exist");
+          throw new NotFoundError(
+            "Verification code has expired or does not exist"
+          );
         }
 
         if (storedCode !== code) {
-          throw new Error("Invalid verification code");
+          throw new ApiTypeError("Invalid verification code");
         }
 
         // Delete the code after successful verification
         await redisClient.del(`email_verification:${email}`);
 
-        res.status(200).json({
-          message: "Email verified successfully",
-          email: email,
-        });
+        return ApiResponse.success(
+          res,
+          { email: email },
+          "Email verified successfully"
+        );
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.log(error.message);
-      res.status(500).json({
-        message: "Failed to verify email code",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Failed to verify email code",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Failed to verify email code",
+          500,
+          error.message
+        );
+      }
     }
   }
 }

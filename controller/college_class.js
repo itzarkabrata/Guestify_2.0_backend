@@ -2,35 +2,56 @@ import mongoose from "mongoose";
 import { Database } from "../lib/connect.js";
 import { College_Model } from "../models/colleges.js";
 import { redisClient } from "../lib/redis.config.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
+import {
+  ApiError,
+  TypeError as ApiTypeError,
+  InternalServerError,
+  NotFoundError,
+} from "../server-utils/ApiError.js";
 
 export class College {
   static async getAllColleges(req, res) {
     try {
       if (await Database.isConnected()) {
-        const {q="", popular} = req.query;
+        const { q = "", popular } = req.query;
 
         const college_list = await College_Model.find({
           college_name: { $regex: q, $options: "i" },
           ...(popular && { popular: true })
         });
-      
 
-        res.status(200).json({
-          message: "College fetched successfully",
-          data: {
-            count : college_list?.length,
-            colleges : college_list
+
+        return ApiResponse.success(
+          res,
+          {
+            count: college_list?.length,
+            colleges: college_list
           },
-        });
+          "College fetched successfully"
+        );
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.log(error.message);
-      res.status(500).json({
-        message: "Colleges are not fetched successfully",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Colleges are not fetched successfully",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Colleges are not fetched successfully",
+          500,
+          error.message
+        );
+      }
     }
   }
 
@@ -38,46 +59,60 @@ export class College {
   static async getCollege(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
-  
+
       const { id } = req.params;
-  
+
       // console.log(id);
       // console.log("Is Valid ObjectId:", mongoose.isValidObjectId(id));
-      
+
       if (!mongoose.isValidObjectId(id)) {
-        return res.status(400).json({ message: "Invalid college ID format" });
+        throw new ApiTypeError("Invalid college ID format");
       }
 
       // Check if the data already in redis
       const cachedData = await redisClient.get(`college-${id}`);
       if (cachedData) {
-        return res.status(200).json({
-          message: "PG fetched successfully",
-          count: JSON.parse(cachedData).length,
-          data: JSON.parse(cachedData),
-        });
+        return ApiResponse.success(
+          res,
+          JSON.parse(cachedData),
+          "PG fetched successfully"
+        );
       }
-  
+
       const college = await College_Model.findById(id);
-  
+
       if (!college) {
-        return res.status(404).json({ message: "College not found" });
+        throw new NotFoundError("College not found");
       }
 
       await redisClient.set(`college-${id}`, JSON.stringify(college), "EX", 300);
-  
-      res.status(200).json({
-        message: "College fetched successfully",
-        data: college,
-      });
+
+      return ApiResponse.success(
+        res,
+        college,
+        "College fetched successfully"
+      );
     } catch (error) {
       console.error("Error fetching college:", error.message);
-      res.status(500).json({
-        message: "Internal server error",
-        error: error.message,
-      });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Error fetching college",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Internal server error",
+          500,
+          error.message
+        );
+      }
     }
   }
 
@@ -115,7 +150,7 @@ export class College {
             array_of_cast_error.push("Image must be of type string");
           }
 
-          throw new TypeError(array_of_cast_error.toString());
+          throw new ApiTypeError(array_of_cast_error.toString());
         }
 
         // Check if the college name already exists
@@ -133,26 +168,34 @@ export class College {
           image_url: image_url,
         });
 
-        res.status(200).json({
-          message: "College fetched successfully",
-          data: enlisted_college,
-        });
+        return ApiResponse.success(
+          res,
+          enlisted_college,
+          "College fetched successfully"
+        );
       } else {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
     } catch (error) {
       console.log(error.message);
-      if(error instanceof TypeError || error instanceof ReferenceError){
-        res.status(400).json({
-          message: "Colleges is not enlisted successfully",
-          error: error.message,
-        });
-      }
-      else{
-        res.status(500).json({
-          message: "Colleges is not enlisted successfully",
-          error: error.message,
-        });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Colleges is not enlisted successfully",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        const statusCode =
+          error instanceof TypeError || error instanceof ReferenceError ? 400 : 500;
+        return ApiResponse.error(
+          res,
+          "Colleges is not enlisted successfully",
+          statusCode,
+          error.message
+        );
       }
     }
   }

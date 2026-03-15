@@ -2,12 +2,20 @@ import PDFDocument from "pdfkit";
 import { Booking_Model } from "../models/booking.js";
 import { Habitate_Model } from "../models/habitate.js";
 import { Database } from "../lib/connect.js";
+import { ApiResponse } from "../server-utils/ApiResponse.js";
+import {
+  ApiError,
+  InternalServerError,
+  NotFoundError,
+} from "../server-utils/ApiError.js";
 
 export class Download_Doc {
   static async downloadBookingDocument(req, res) {
     try {
       if (!(await Database.isConnected())) {
-        throw new Error("Database server is not connected properly");
+        throw new InternalServerError(
+          "Database server is not connected properly"
+        );
       }
       const { booking_id } = req.params;
 
@@ -17,7 +25,7 @@ export class Download_Doc {
       }).lean();
 
       if (!booking)
-        return res.status(404).json({ message: "Booking not found" });
+        throw new NotFoundError("Booking not found");
 
       // Initialize PDF
       const doc = new PDFDocument({ size: "A4", margin: 50 });
@@ -119,9 +127,21 @@ export class Download_Doc {
       doc.end();
     } catch (error) {
       console.error("PDF generation failed:", error);
-      res
-        .status(500)
-        .json({ message: "Error generating PDF", error: error.message });
+      if (error instanceof ApiError) {
+        return ApiResponse.error(
+          res,
+          "Error generating PDF",
+          error.statusCode,
+          error.message
+        );
+      } else {
+        return ApiResponse.error(
+          res,
+          "Error generating PDF",
+          500,
+          error.message
+        );
+      }
     }
   }
 }
